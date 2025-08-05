@@ -2,6 +2,9 @@ PRIMARY_SERVICE = 0xFFAA
 CHAR_NOTICE = 0xFF00
 CHAR_REQ = 0xFF01
 
+GENERIC_ACCESS_SERVICE = 0x1800
+CHAR_DEVICE_NAME = 0x2A00
+
 // Получение ссылок на элементы UI
 let connectButton = document.getElementById('connect');
 let connectAndActiveButton = document.getElementById('connectAndActive');
@@ -89,10 +92,10 @@ function requestBluetoothDevice() {
   log('Requesting bluetooth device...');
 
   return navigator.bluetooth.requestDevice({
-    filters: [{services: [PRIMARY_SERVICE]}],
+    filters: [{services: [PRIMARY_SERVICE]}, {services: [GENERIC_ACCESS_SERVICE]}],
   }).
       then(device => {
-        log('"' + device.name + '"' + device.id + '] bluetooth device selected');
+        log('"' + device.name + '" [' + device.id+ '] bluetooth device selected');
         deviceCache = device;
         deviceCache.addEventListener('gattserverdisconnected',
             handleDisconnection);
