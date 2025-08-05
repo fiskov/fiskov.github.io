@@ -9,19 +9,30 @@
 <body>
 
 <div id="buttons">
-<button id="connect" type="button">Connect</button>
-<button id="connectAndActive" type="button">Connect+Act60s</button>
-<button id="disconnect" type="button">Disconnect</button>
+    <div>
+        <button id="connect" type="button">Connect</button>
+        <button id="connectAndActive" type="button">Connect+Act60s</button>
+        <button id="disconnect" type="button">Disconnect</button>
 
-<button id="sendHiButton" type="button">Send "hi"</button>
-<button id="sendActiveButton" type="button">Send "Active 60s"</button>
-<button id="sendGetSleepButton" type="button">Send "get sleep est."</button>
-<button id="sendSleepButton" type="button">Send "Sleep 1h"</button>
-
-<form id="send-form">
-    <input id="input" type="text">
-    <button type="submit">Send</button>    
-</form>
+        <button id="sendHiButton" type="button">Send "hi"</button>
+        <button id="sendActiveButton" type="button">Send "Active 60s"</button>
+        <button id="sendGetSleepButton" type="button">Send "get sleep est."</button>
+        <button id="sendSleepButton" type="button">Send "Sleep 1h"</button>
+    </div>
+    <div>
+        <form id="send-form">
+            <input id="input" type="text">
+            <button type="submit">Send</button>    
+        </form>
+        <div>
+            <input type="checkbox" id="hexTxt" name="hexTxt" checked />
+            <label for="scales">hex to text</label>
+        </div>
+        <div>
+            <input type="checkbox" id="hexUint" name="hexUint" checked />
+            <label for="scales">hex to uint</label>
+        </div>
+  </div>
 </div>
 
 <div id="terminal"></div>

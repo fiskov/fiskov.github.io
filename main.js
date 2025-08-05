@@ -15,7 +15,10 @@ let terminalContainer = document.getElementById('terminal');
 let sendForm = document.getElementById('send-form');
 let inputField = document.getElementById('input');
 
-let idCounter = 0
+let hexTxt = document.getElementById('hexTxt');
+let hexUint = document.getElementById('hexUint');
+
+let idCounter = 0;
 
 // Подключение к устройству при нажатии на кнопку Connect
 connectButton.addEventListener('click', function() {
@@ -177,7 +180,51 @@ function arrayBufferToHex(buffer) { // buffer is an ArrayBuffer
 
 // Получение данных
 function handleCharacteristicValueChanged(event) {
-  receive(dataViewToHex(event.target.value));
+  let view = event.target.value;
+  let txt = '';
+  let txtUint = '';
+
+  if (view.byteLength == 0)
+  {
+    receive('<none>');
+    return;
+  }
+
+  let msg = dataViewToHex(event.target.value) + '<' + view.byteLength.toString(10) + '>';
+
+  if (hexTxt.checked)
+  {
+    let isTxt = true;
+
+    for (let i = 0; i < view.byteLength; i++)
+    {
+      b = view.getUint8(i)
+      if ((b < 0x20) || (b >= 0x7F))
+      {
+        isTxt = false;
+        break;
+      }
+    }
+    if (isTxt)
+    {
+      for (let i = 0; i < view.byteLength; i++)
+        txt += String.fromCharCode(view.getUint8(i));
+
+      msg = '"' + txt + '" ' + msg;
+    }
+  }
+
+  if (hexUint.checked && (view.byteLength <= 4))
+  {
+    let value = 0;
+
+    for (let i = 0; i < view.byteLength; i++)
+      value += view.getUint8(i) * (1 << (8*i));
+
+    msg += '=' + value.toString(10);
+  }
+
+  receive(msg);
 }
 
 // Обработка полученных данных
@@ -189,7 +236,7 @@ function receive(data) {
 function log(data, type = '') {
   let id = 'item'+idCounter.toString(10)
   idCounter += 1
-  
+
   terminalContainer.insertAdjacentHTML('beforeend',
       '<div' + (type ? ' class="' + type + '"' : '') + ' id="'+id+'">' + data + '</div>');
   terminalContainer.scrollTop = document.getElementById(id).offsetTop;

@@ -5,6 +5,7 @@ body, html {
   display: flex;
   flex-direction: column;
 }
+form{float:left;}
 #buttons button, input {
     margin: 0.5em 0.5em 0 0.5em;
     padding: 0.5em;
