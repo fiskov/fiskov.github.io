@@ -11,6 +11,8 @@ const totalWordsEl = document.getElementById('totalWords');
 const resetBtn = document.getElementById('resetBtn');
 const decodeInput = document.getElementById('decodeInput');
 const decodeOutput = document.getElementById('decodeOutput');
+const errorsSection = document.getElementById('errorsSection');
+const errorsBody = document.getElementById('errorsBody');
 
 // Обработчики событий для drag & drop
 dropZone.addEventListener('click', () => fileInput.click());
@@ -75,6 +77,8 @@ resetBtn.addEventListener('click', () => {
     resultsContainer.style.display = 'none';
     dropZone.style.display = 'block';
     resultsBody.innerHTML = '';
+    errorsBody.innerHTML = '';
+    errorsSection.style.display = 'none';
     fileInput.value = '';
 });
 
@@ -270,6 +274,7 @@ async function processBookFile(file, archiveName = null) {
         
         if (wordCount > 0) {
             return {
+                success: true,
                 archive: archiveName || 'Прямая загрузка',
                 book: fileName,
                 format: format,
@@ -278,6 +283,13 @@ async function processBookFile(file, archiveName = null) {
         }
     } catch (error) {
         console.error(`Ошибка обработки файла ${fileName}:`, error);
+        return {
+            success: false,
+            archive: archiveName || 'Прямая загрузка',
+            book: fileName,
+            format: format,
+            error: error.message || 'Неизвестная ошибка'
+        };
     }
     
     return null;
@@ -290,6 +302,7 @@ async function processFiles(files) {
     resultsContainer.style.display = 'none';
     
     const results = [];
+    const errors = [];
     let totalBooks = 0;
     let totalWords = 0;
     let processedFiles = 0;
@@ -326,12 +339,23 @@ async function processFiles(files) {
                         
                         const result = await processBookFile(extractedFile, file.name);
                         if (result) {
-                            results.push(result);
-                            totalBooks++;
-                            totalWords += result.words;
+                            if (result.success) {
+                                results.push(result);
+                                totalBooks++;
+                                totalWords += result.words;
+                            } else {
+                                errors.push(result);
+                            }
                         }
                     } catch (error) {
                         console.error(`Ошибка обработки книги ${bookFileName}:`, error);
+                        errors.push({
+                            success: false,
+                            archive: file.name,
+                            book: bookFileName.split('/').pop(),
+                            format: bookFileName.split('.').pop().toUpperCase(),
+                            error: error.message || 'Неизвестная ошибка'
+                        });
                     }
                 }
             } else {
@@ -340,9 +364,13 @@ async function processFiles(files) {
                 
                 const result = await processBookFile(file);
                 if (result) {
-                    results.push(result);
-                    totalBooks++;
-                    totalWords += result.words;
+                    if (result.success) {
+                        results.push(result);
+                        totalBooks++;
+                        totalWords += result.words;
+                    } else {
+                        errors.push(result);
+                    }
                 }
             }
             
@@ -352,15 +380,22 @@ async function processFiles(files) {
             
         } catch (error) {
             console.error(`Ошибка обработки файла ${file.name}:`, error);
+            errors.push({
+                success: false,
+                archive: 'Прямая загрузка',
+                book: file.name,
+                format: file.name.split('.').pop().toUpperCase(),
+                error: error.message || 'Неизвестная ошибка'
+            });
         }
     }
     
     // Отображение результатов
-    displayResults(results, totalBooks, totalWords);
+    displayResults(results, totalBooks, totalWords, errors);
 }
 
 // Функция отображения результатов
-function displayResults(results, totalBooks, totalWords) {
+function displayResults(results, totalBooks, totalWords, errors = []) {
     progressContainer.style.display = 'none';
     resultsContainer.style.display = 'block';
     
@@ -368,6 +403,7 @@ function displayResults(results, totalBooks, totalWords) {
     totalWordsEl.textContent = totalWords.toLocaleString('ru-RU');
     
     resultsBody.innerHTML = '';
+    errorsBody.innerHTML = '';
     
     // Сортируем результаты по количеству слов (по убыванию)
     results.sort((a, b) => b.words - a.words);
@@ -415,5 +451,46 @@ function displayResults(results, totalBooks, totalWords) {
             </td>
         `;
         resultsBody.appendChild(row);
+    }
+    
+    // Отображение ошибок
+    if (errors.length > 0) {
+        errorsSection.style.display = 'block';
+        
+        errors.forEach((error, index) => {
+            const row = document.createElement('tr');
+            
+            // Декодируем URI-кодированные названия
+            let decodedArchive = error.archive;
+            let decodedBook = error.book;
+            
+            try {
+                decodedArchive = decodeURIComponent(error.archive);
+            } catch (e) {
+                console.warn('Failed to decode archive name:', error.archive);
+            }
+            
+            try {
+                decodedBook = decodeURIComponent(error.book);
+            } catch (e) {
+                console.warn('Failed to decode book name:', error.book);
+            }
+            
+            // Сокращаем длинные имена
+            const truncatedArchive = truncateName(decodedArchive, 40);
+            const truncatedBook = truncateName(decodedBook, 40);
+            const truncatedError = error.error.length > 100 ? error.error.substring(0, 100) + '...' : error.error;
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td title="${decodedArchive}">${truncatedArchive}</td>
+                <td title="${decodedBook}">${truncatedBook}</td>
+                <td>${error.format}</td>
+                <td title="${error.error}" style="color: #d32f2f;">${truncatedError}</td>
+            `;
+            errorsBody.appendChild(row);
+        });
+    } else {
+        errorsSection.style.display = 'none';
     }
 }
