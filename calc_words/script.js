@@ -359,9 +359,28 @@ function displayResults(results, totalBooks, totalWords) {
     
     results.forEach(result => {
         const row = document.createElement('tr');
+        
+        // Декодируем URI-кодированные названия
+        let decodedArchive = result.archive;
+        let decodedBook = result.book;
+        
+        try {
+            decodedArchive = decodeURIComponent(result.archive);
+        } catch (e) {
+            // Если декодирование не удалось, используем оригинальное название
+            console.warn('Failed to decode archive name:', result.archive);
+        }
+        
+        try {
+            decodedBook = decodeURIComponent(result.book);
+        } catch (e) {
+            // Если декодирование не удалось, используем оригинальное название
+            console.warn('Failed to decode book name:', result.book);
+        }
+        
         row.innerHTML = `
-            <td>${result.archive}</td>
-            <td>${result.book}</td>
+            <td>${decodedArchive}</td>
+            <td>${decodedBook}</td>
             <td>${result.format}</td>
             <td><strong>${result.words.toLocaleString('ru-RU')}</strong></td>
         `;
