@@ -8,6 +8,7 @@ const resultsContainer = document.getElementById('results');
 const resultsBody = document.getElementById('resultsBody');
 const totalBooksEl = document.getElementById('totalBooks');
 const totalWordsEl = document.getElementById('totalWords');
+const readingTimeEl = document.getElementById('readingTime');
 const resetBtn = document.getElementById('resetBtn');
 const decodeInput = document.getElementById('decodeInput');
 const decodeOutput = document.getElementById('decodeOutput');
@@ -115,6 +116,32 @@ function countWords(text) {
     // Разбиваем на слова и фильтруем пустые строки
     const words = cleaned.split(/\s+/).filter(word => word.length > 0);
     return words.length;
+}
+
+// Функция расчета времени чтения
+function calculateReadingTime(totalWords) {
+    const wordsPerMinute = 200;
+    const minutes = totalWords / wordsPerMinute;
+    const hours = minutes / 60;
+    const days = hours / 24;
+    
+    if (days >= 1) {
+        const wholeDays = Math.floor(days);
+        const remainingHours = Math.floor((days - wholeDays) * 24);
+        if (remainingHours > 0) {
+            return `${wholeDays} д ${remainingHours} ч`;
+        }
+        return `${wholeDays} д`;
+    } else if (hours >= 1) {
+        const wholeHours = Math.floor(hours);
+        const remainingMinutes = Math.floor((hours - wholeHours) * 60);
+        if (remainingMinutes > 0) {
+            return `${wholeHours} ч ${remainingMinutes} мин`;
+        }
+        return `${wholeHours} ч`;
+    } else {
+        return `${Math.ceil(minutes)} мин`;
+    }
 }
 
 // Функция извлечения текста из FB2
@@ -412,6 +439,7 @@ function displayResults(results, totalBooks, totalWords, errors = []) {
     
     totalBooksEl.textContent = totalBooks;
     totalWordsEl.textContent = totalWords.toLocaleString('ru-RU');
+    readingTimeEl.textContent = calculateReadingTime(totalWords);
     
     resultsBody.innerHTML = '';
     errorsBody.innerHTML = '';
