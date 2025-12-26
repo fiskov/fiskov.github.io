@@ -10,7 +10,6 @@ const totalBooksEl = document.getElementById('totalBooks');
 const totalWordsEl = document.getElementById('totalWords');
 const resetBtn = document.getElementById('resetBtn');
 const decodeInput = document.getElementById('decodeInput');
-const decodeBtn = document.getElementById('decodeBtn');
 const decodeOutput = document.getElementById('decodeOutput');
 
 // Обработчики событий для drag & drop
@@ -79,23 +78,7 @@ resetBtn.addEventListener('click', () => {
     fileInput.value = '';
 });
 
-// Обработчик для декодирования URI
-decodeBtn.addEventListener('click', () => {
-    const input = decodeInput.value.trim();
-    if (input) {
-        try {
-            const decoded = decodeURIComponent(input);
-            decodeOutput.textContent = decoded;
-            decodeOutput.style.color = '#333';
-        } catch (e) {
-            decodeOutput.textContent = 'Ошибка декодирования: ' + e.message;
-            decodeOutput.style.color = '#d32f2f';
-        }
-    } else {
-        decodeOutput.textContent = 'Введите текст для декодирования';
-        decodeOutput.style.color = '#999';
-    }
-});
+
 
 // Функция сокращения длинных имен
 function truncateName(name, maxLength = 60) {
@@ -335,7 +318,7 @@ async function processFiles(files) {
                         const bookFile = zip.files[bookFileName];
                         const bookName = bookFileName.split('/').pop();
                         
-                        progressText.textContent = `Обработка: ${bookName}...`;
+                        progressText.textContent = `Обработка: ${decodeURIComponent(bookName)}...`;
                         
                         // Создаем File объект из данных архива
                         const fileData = await bookFile.async('blob');
