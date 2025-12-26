@@ -9,6 +9,9 @@ const resultsBody = document.getElementById('resultsBody');
 const totalBooksEl = document.getElementById('totalBooks');
 const totalWordsEl = document.getElementById('totalWords');
 const resetBtn = document.getElementById('resetBtn');
+const decodeInput = document.getElementById('decodeInput');
+const decodeBtn = document.getElementById('decodeBtn');
+const decodeOutput = document.getElementById('decodeOutput');
 
 // Обработчики событий для drag & drop
 dropZone.addEventListener('click', () => fileInput.click());
@@ -75,6 +78,35 @@ resetBtn.addEventListener('click', () => {
     resultsBody.innerHTML = '';
     fileInput.value = '';
 });
+
+// Обработчик для декодирования URI
+decodeBtn.addEventListener('click', () => {
+    const input = decodeInput.value.trim();
+    if (input) {
+        try {
+            const decoded = decodeURIComponent(input);
+            decodeOutput.textContent = decoded;
+            decodeOutput.style.color = '#333';
+        } catch (e) {
+            decodeOutput.textContent = 'Ошибка декодирования: ' + e.message;
+            decodeOutput.style.color = '#d32f2f';
+        }
+    } else {
+        decodeOutput.textContent = 'Введите текст для декодирования';
+        decodeOutput.style.color = '#999';
+    }
+});
+
+// Функция сокращения длинных имен
+function truncateName(name, maxLength = 60) {
+    if (name.length <= maxLength) {
+        return name;
+    }
+    const extension = name.split('.').pop();
+    const nameWithoutExt = name.substring(0, name.lastIndexOf('.'));
+    const truncated = nameWithoutExt.substring(0, maxLength - extension.length - 4) + '...';
+    return truncated + '.' + extension;
+}
 
 // Функция подсчета слов в тексте
 function countWords(text) {
@@ -357,7 +389,7 @@ function displayResults(results, totalBooks, totalWords) {
     // Сортируем результаты по количеству слов (по убыванию)
     results.sort((a, b) => b.words - a.words);
     
-    results.forEach(result => {
+    results.forEach((result, index) => {
         const row = document.createElement('tr');
         
         // Декодируем URI-кодированные названия
@@ -378,9 +410,14 @@ function displayResults(results, totalBooks, totalWords) {
             console.warn('Failed to decode book name:', result.book);
         }
         
+        // Сокращаем длинные имена
+        const truncatedArchive = truncateName(decodedArchive, 60);
+        const truncatedBook = truncateName(decodedBook, 60);
+        
         row.innerHTML = `
-            <td>${decodedArchive}</td>
-            <td>${decodedBook}</td>
+            <td>${index + 1}</td>
+            <td title="${decodedArchive}">${truncatedArchive}</td>
+            <td title="${decodedBook}">${truncatedBook}</td>
             <td>${result.format}</td>
             <td><strong>${result.words.toLocaleString('ru-RU')}</strong></td>
         `;
