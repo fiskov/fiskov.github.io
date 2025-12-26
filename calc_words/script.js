@@ -371,7 +371,7 @@ async function processFiles(files) {
                 }
             } else {
                 // Обрабатываем файл напрямую (не из архива)
-                progressText.textContent = `Обработка: ${file.name}...`;
+                progressText.textContent = `Обработка: ${decodeURIComponent(file.name)}...`;
                 
                 const result = await processBookFile(file);
                 if (result) {
