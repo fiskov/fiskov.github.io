@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подсчет слов в книгах</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Подсчет слов в книгах</h1>
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-content">
+                <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>Перетащите сюда файлы или папку</p>
+                <p class="hint">Поддерживаются: ZIP, FB2, EPUB, MOBI, DOCX, RTF, TXT</p>
+                <input type="file" id="fileInput" multiple accept=".zip,.fb2,.epub,.mobi,.docx,.rtf,.txt" style="display: none;" webkitdirectory directory>
+            </div>
+        </div>
+        
+        <div id="progress" class="progress-container" style="display: none;">
+            <div class="progress-bar">
+                <div id="progressBar" class="progress-fill"></div>
+            </div>
+            <p id="progressText">Обработка файлов...</p>
+        </div>
+
+        <div id="results" class="results-container" style="display: none;">
+            <h2>Результаты</h2>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Всего книг:</span>
+                    <span id="totalBooks" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Всего слов:</span>
+                    <span id="totalWords" class="stat-value">0</span>
+                </div>
+            </div>
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Архив</th>
+                        <th>Книга</th>
+                        <th>Формат</th>
+                        <th>Количество слов</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+            <button id="resetBtn" class="reset-btn">Загрузить новые файлы</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rtf.js/3.0.8/rtf.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
