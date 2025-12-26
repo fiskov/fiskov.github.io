@@ -22,29 +22,48 @@ dropZone.addEventListener('dragleave', () => {
     dropZone.classList.remove('drag-over');
 });
 
+// Функция проверки поддерживаемых форматов
+function isSupportedFile(fileName) {
+    const name = fileName.toLowerCase();
+    return name.endsWith('.zip') || name.endsWith('.fb2') ||
+           name.endsWith('.epub') || name.endsWith('.mobi') ||
+           name.endsWith('.docx') || name.endsWith('.rtf') ||
+           name.endsWith('.txt');
+}
+
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
+    
+    console.log('Drop event triggered');
+    console.log('dataTransfer.files:', e.dataTransfer.files);
+    
+    // Используем простой метод через dataTransfer.files
+    // Это работает надежнее, чем File System Access API
     const files = Array.from(e.dataTransfer.files).filter(file => {
-        const name = file.name.toLowerCase();
-        return name.endsWith('.zip') || name.endsWith('.fb2') ||
-               name.endsWith('.epub') || name.endsWith('.mobi') ||
-               name.endsWith('.docx') || name.endsWith('.rtf') ||
-               name.endsWith('.txt');
+        const supported = isSupportedFile(file.name);
+        console.log('File:', file.name, 'size:', file.size, 'supported:', supported);
+        return supported;
     });
+    
+    console.log('Total supported files:', files.length);
+    
     if (files.length > 0) {
         processFiles(files);
+    } else {
+        console.log('No supported files found');
+        alert('Не найдено поддерживаемых файлов. Поддерживаются: ZIP, FB2, EPUB, MOBI, DOCX, RTF, TXT');
     }
 });
 
 fileInput.addEventListener('change', (e) => {
+    console.log('File input changed, files:', e.target.files);
     const files = Array.from(e.target.files).filter(file => {
-        const name = file.name.toLowerCase();
-        return name.endsWith('.zip') || name.endsWith('.fb2') ||
-               name.endsWith('.epub') || name.endsWith('.mobi') ||
-               name.endsWith('.docx') || name.endsWith('.rtf') ||
-               name.endsWith('.txt');
+        const supported = isSupportedFile(file.name);
+        console.log('File:', file.name, 'supported:', supported);
+        return supported;
     });
+    console.log('Total supported files:', files.length);
     if (files.length > 0) {
         processFiles(files);
     }
