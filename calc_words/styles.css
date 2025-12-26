@@ -38,6 +38,42 @@ h1 {
     backdrop-filter: blur(10px);
 }
 
+.notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 90%;
+    text-align: center;
+}
+
+.notification.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.notification.error {
+    border-left: 4px solid #d32f2f;
+    color: #d32f2f;
+}
+
+.notification.success {
+    border-left: 4px solid #4caf50;
+    color: #4caf50;
+}
+
+.notification.info {
+    border-left: 4px solid #2196f3;
+    color: #2196f3;
+}
+
 .drop-zone {
     background: white;
     border: 3px dashed #667eea;

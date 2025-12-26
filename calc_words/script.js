@@ -13,6 +13,17 @@ const decodeInput = document.getElementById('decodeInput');
 const decodeOutput = document.getElementById('decodeOutput');
 const errorsSection = document.getElementById('errorsSection');
 const errorsBody = document.getElementById('errorsBody');
+const notification = document.getElementById('notification');
+
+// Функция показа уведомления
+function showNotification(message, type = 'error') {
+    notification.textContent = message;
+    notification.className = `notification ${type} show`;
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 4000);
+}
 
 // Обработчики событий для drag & drop
 dropZone.addEventListener('click', () => fileInput.click());
@@ -56,7 +67,7 @@ dropZone.addEventListener('drop', (e) => {
         processFiles(files);
     } else {
         console.log('No supported files found');
-        alert('Не найдено поддерживаемых файлов. Поддерживаются: ZIP, FB2, EPUB, MOBI, DOCX, RTF, TXT');
+        showNotification('Не найдено поддерживаемых файлов. Поддерживаются: ZIP, FB2, EPUB, MOBI, DOCX, RTF, TXT', 'error');
     }
 });
 
