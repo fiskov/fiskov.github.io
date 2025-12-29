@@ -36,9 +36,11 @@ function isEbook(filename) {
 function countWords(text, isFb2 = false) {
     let processedText = text;
     
-    // Для FB2 файлов удаляем содержимое тегов <binary>
+    // Для FB2 файлов удаляем содержимое тегов <binary> и <description>
     if (isFb2) {
-        processedText = processedText.replace(/<binary[^>]*>[\s\S]*?<\/binary>/gi, ' ');
+        processedText = processedText
+            .replace(/<binary[^>]*>[\s\S]*?<\/binary>/gi, ' ')
+            .replace(/<description[^>]*>[\s\S]*?<\/description>/gi, ' ');
     }
     
     // Удаляем HTML теги, XML теги и специальные символы
