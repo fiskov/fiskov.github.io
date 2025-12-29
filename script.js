@@ -38,19 +38,44 @@ function countWords(text) {
 }
 
 // Чтение содержимого файла как текста
-async function readFileAsText(file) {
+async function readFileAsText(file, encoding = 'UTF-8') {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
         reader.onerror = reject;
-        reader.readAsText(file, 'UTF-8');
+        reader.readAsText(file, encoding);
     });
+}
+
+// Проверка, является ли текст валидным UTF-8
+function isValidUTF8(text) {
+    // Проверяем наличие символов замены (�), которые появляются при неправильной кодировке
+    const replacementChar = '\uFFFD';
+    const replacementCount = (text.match(new RegExp(replacementChar, 'g')) || []).length;
+    
+    // Если более 5% символов - это символы замены, считаем что кодировка неверная
+    return replacementCount < text.length * 0.05;
 }
 
 // Подсчёт слов в файле электронной книги
 async function countWordsInEbook(file) {
     try {
-        const text = await readFileAsText(file);
+        const ext = file.name.split('.').pop().toLowerCase();
+        let text;
+        
+        // Для txt файлов пробуем сначала UTF-8, потом cp1251
+        if (ext === 'txt') {
+            text = await readFileAsText(file, 'UTF-8');
+            
+            // Если UTF-8 не подходит, пробуем cp1251 (windows-1251)
+            if (!isValidUTF8(text)) {
+                text = await readFileAsText(file, 'windows-1251');
+            }
+        } else {
+            // Для остальных форматов используем UTF-8
+            text = await readFileAsText(file, 'UTF-8');
+        }
+        
         return countWords(text);
     } catch (error) {
         console.error('Error counting words:', error);
