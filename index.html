@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр структуры папок</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📁 Просмотр структуры папок <span class="version">v0.1</span></h1>
+            <p class="subtitle">Перетащите папку в область ниже</p>
+        </header>
+
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-content">
+                <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <p class="drop-text">Перетащите папку сюда</p>
+                <p class="drop-hint">или нажмите для выбора</p>
+            </div>
+        </div>
+
+        <div id="treeContainer" class="tree-container hidden">
+            <div class="tree-header">
+                <h2 id="folderName">Структура папки</h2>
+                <button id="clearBtn" class="clear-btn">Очистить</button>
+            </div>
+            <div id="treeView" class="tree-view"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
