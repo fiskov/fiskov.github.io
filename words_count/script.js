@@ -32,12 +32,36 @@ function isEbook(filename) {
     return EBOOK_EXTENSIONS.includes(ext);
 }
 
+// Конвертация RTF в текст
+function rtfToText(rtf) {
+    // Удаляем RTF заголовок и управляющие последовательности
+    let text = rtf
+        // Удаляем RTF заголовок
+        .replace(/\{\\rtf1[^}]*\}/g, '')
+        // Удаляем управляющие слова RTF (например, \par, \pard, \b, \i и т.д.)
+        .replace(/\\[a-z]+(-?\d+)?[ ]?/gi, ' ')
+        // Удаляем специальные символы RTF
+        .replace(/[{}]/g, ' ')
+        // Удаляем escape-последовательности
+        .replace(/\\'[0-9a-f]{2}/gi, ' ')
+        // Заменяем множественные пробелы на один
+        .replace(/\s+/g, ' ')
+        .trim();
+    
+    return text;
+}
+
 // Подсчёт слов в тексте
-function countWords(text, isFb2 = false) {
+function countWords(text, fileType = null) {
     let processedText = text;
     
+    // Для RTF файлов конвертируем в текст
+    if (fileType === 'rtf') {
+        processedText = rtfToText(processedText);
+    }
+    
     // Для FB2 файлов удаляем содержимое тегов <binary> и <description>
-    if (isFb2) {
+    if (fileType === 'fb2') {
         processedText = processedText
             .replace(/<binary[^>]*>[\s\S]*?<\/binary>/gi, ' ')
             .replace(/<description[^>]*>[\s\S]*?<\/description>/gi, ' ');
@@ -81,7 +105,6 @@ function isValidUTF8(text) {
 async function countWordsInEbook(file) {
     try {
         const ext = file.name.split('.').pop().toLowerCase();
-        const isFb2 = ext === 'fb2';
         let text;
         
         // Для txt файлов пробуем сначала UTF-8, потом cp1251
@@ -97,7 +120,7 @@ async function countWordsInEbook(file) {
             text = await readFileAsText(file, 'UTF-8');
         }
         
-        return countWords(text, isFb2);
+        return countWords(text, ext);
     } catch (error) {
         console.error('Error counting words:', error);
         return null;
@@ -128,7 +151,6 @@ async function processZipFile(file) {
         for (const { path, entry } of ebookFiles) {
             try {
                 const ext = path.split('.').pop().toLowerCase();
-                const isFb2 = ext === 'fb2';
                 let text;
                 
                 if (ext === 'txt') {
@@ -145,7 +167,7 @@ async function processZipFile(file) {
                     text = await entry.async('text');
                 }
                 
-                const words = countWords(text, isFb2);
+                const words = countWords(text, ext);
                 if (words > 0) {
                     totalWords += words;
                 }
