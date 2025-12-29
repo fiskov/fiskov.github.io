@@ -135,6 +135,10 @@ async function processDirectory(directoryEntry) {
     treeView.innerHTML = '';
     
     const tree = await buildTreeFromEntry(directoryEntry);
+    
+    // Подсчитываем суммы слов для всех папок
+    calculateFolderWordCount(tree);
+    
     renderTree(tree, treeView);
     
     addStats();
@@ -150,6 +154,10 @@ async function processFilesArray(files) {
     folderNameEl.textContent = `📁 ${rootPath}`;
     
     const tree = await buildTreeFromFiles(files);
+    
+    // Подсчитываем суммы слов для всех папок
+    calculateFolderWordCount(tree);
+    
     treeView.innerHTML = '';
     renderTree(tree, treeView);
     
@@ -307,6 +315,24 @@ function sortTree(node) {
     }
 }
 
+// Подсчёт суммы слов в папке (рекурсивно)
+function calculateFolderWordCount(node) {
+    if (node.type === 'file') {
+        return node.wordCount || 0;
+    }
+    
+    if (node.type === 'folder' && node.children) {
+        let totalWords = 0;
+        node.children.forEach(child => {
+            totalWords += calculateFolderWordCount(child);
+        });
+        node.wordCount = totalWords;
+        return totalWords;
+    }
+    
+    return 0;
+}
+
 // Отрисовка дерева
 function renderTree(node, container, level = 0) {
     const item = document.createElement('div');
@@ -341,8 +367,8 @@ function renderTree(node, container, level = 0) {
     const name = document.createElement('span');
     name.className = `tree-name tree-${node.type}`;
     
-    // Добавляем количество слов для электронных книг
-    if (node.type === 'file' && node.wordCount !== undefined && node.wordCount !== null) {
+    // Добавляем количество слов для папок и файлов
+    if (node.wordCount !== undefined && node.wordCount !== null && node.wordCount > 0) {
         name.textContent = `[${node.wordCount.toLocaleString()}] ${node.name}`;
     } else {
         name.textContent = node.name;
