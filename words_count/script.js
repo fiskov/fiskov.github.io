@@ -611,7 +611,7 @@ function displayTimingInfo() {
         <div><span class="timing-label">Начало обработки:</span> <span class="timing-value">${formatDateTime(processingTimes.startTime)}</span></div>
         <div><span class="timing-label">Окончание обработки:</span> <span class="timing-value">${formatDateTime(processingTimes.endTime)}</span></div>
         <div><span class="timing-label">Затраченное время:</span> <span class="timing-value">${duration.toFixed(2)} сек</span></div>
-        <div><span class="timing-label">Всего слов:</span> <span class="timing-value">${stats.totalWords.toLocaleString()} (время чтения: ${readingTime})</span></div>
+        <div><span class="timing-label">Всего слов:</span> <span class="timing-value">${stats.totalWords.toLocaleString()} (время чтения: ${readingTime} при 150 слов/мин)</span></div>
     `;
 }
 
