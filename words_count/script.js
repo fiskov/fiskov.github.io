@@ -10,7 +10,8 @@ const timingInfo = document.getElementById('timingInfo');
 let stats = {
     folders: 0,
     files: 0,
-    totalSize: 0
+    totalSize: 0,
+    totalWords: 0
 };
 
 // Время обработки
@@ -18,6 +19,9 @@ let processingTimes = {
     startTime: null,
     endTime: null
 };
+
+// Скорость чтения (слов в минуту)
+const READING_SPEED = 150;
 
 // Расширения электронных книг
 const EBOOK_EXTENSIONS = ['fb2', 'rtf', 'epub', 'txt', 'docx'];
@@ -193,7 +197,7 @@ dropZone.addEventListener('click', () => {
 // Обработка папки через drag & drop
 async function processDirectory(directoryEntry) {
     processingTimes.startTime = new Date();
-    stats = { folders: 0, files: 0, totalSize: 0 };
+    stats = { folders: 0, files: 0, totalSize: 0, totalWords: 0 };
     
     folderNameEl.textContent = `📁 ${directoryEntry.name}`;
     treeView.innerHTML = '';
@@ -202,7 +206,7 @@ async function processDirectory(directoryEntry) {
     const tree = await buildTreeFromEntry(directoryEntry);
     
     // Подсчитываем суммы слов для всех папок
-    calculateFolderWordCount(tree);
+    stats.totalWords = calculateFolderWordCount(tree);
     
     renderTree(tree, treeView);
     
@@ -216,7 +220,7 @@ async function processDirectory(directoryEntry) {
 // Обработка файлов через input
 async function processFilesArray(files) {
     processingTimes.startTime = new Date();
-    stats = { folders: 0, files: 0, totalSize: 0 };
+    stats = { folders: 0, files: 0, totalSize: 0, totalWords: 0 };
     
     // Получаем имя корневой папки
     const rootPath = files[0].webkitRelativePath.split('/')[0];
@@ -228,7 +232,7 @@ async function processFilesArray(files) {
     const tree = await buildTreeFromFiles(files);
     
     // Подсчитываем суммы слов для всех папок
-    calculateFolderWordCount(tree);
+    stats.totalWords = calculateFolderWordCount(tree);
     
     renderTree(tree, treeView);
     
@@ -560,16 +564,33 @@ function formatDateTime(date) {
     return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// Форматирование времени чтения
+function formatReadingTime(words) {
+    const minutes = words / READING_SPEED;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    
+    if (hours > 0) {
+        return `${hours} ч ${mins} мин`;
+    } else if (mins > 0) {
+        return `${mins} мин`;
+    } else {
+        return `< 1 мин`;
+    }
+}
+
 // Отображение информации о времени обработки
 function displayTimingInfo() {
     if (!processingTimes.startTime || !processingTimes.endTime) return;
     
     const duration = (processingTimes.endTime - processingTimes.startTime) / 1000;
+    const readingTime = stats.totalWords > 0 ? formatReadingTime(stats.totalWords) : '-';
     
     timingInfo.innerHTML = `
         <div><span class="timing-label">Начало обработки:</span> <span class="timing-value">${formatDateTime(processingTimes.startTime)}</span></div>
         <div><span class="timing-label">Окончание обработки:</span> <span class="timing-value">${formatDateTime(processingTimes.endTime)}</span></div>
         <div><span class="timing-label">Затраченное время:</span> <span class="timing-value">${duration.toFixed(2)} сек</span></div>
+        <div><span class="timing-label">Всего слов:</span> <span class="timing-value">${stats.totalWords.toLocaleString()} (время чтения: ${readingTime})</span></div>
     `;
 }
 
@@ -578,6 +599,6 @@ clearBtn.addEventListener('click', () => {
     treeContainer.classList.add('hidden');
     treeView.innerHTML = '';
     timingInfo.innerHTML = '';
-    stats = { folders: 0, files: 0, totalSize: 0 };
+    stats = { folders: 0, files: 0, totalSize: 0, totalWords: 0 };
     processingTimes = { startTime: null, endTime: null };
 });
