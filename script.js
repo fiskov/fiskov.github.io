@@ -83,6 +83,62 @@ async function countWordsInEbook(file) {
     }
 }
 
+// Проверка, является ли файл zip-архивом
+function isZipFile(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    return ext === 'zip';
+}
+
+// Обработка zip-файла и подсчёт слов во вложенных книгах
+async function processZipFile(file) {
+    try {
+        const zip = await JSZip.loadAsync(file);
+        let totalWords = 0;
+        const ebookFiles = [];
+        
+        // Находим все файлы электронных книг в архиве
+        zip.forEach((relativePath, zipEntry) => {
+            if (!zipEntry.dir && isEbook(relativePath)) {
+                ebookFiles.push({ path: relativePath, entry: zipEntry });
+            }
+        });
+        
+        // Подсчитываем слова в каждой книге
+        for (const { path, entry } of ebookFiles) {
+            try {
+                const ext = path.split('.').pop().toLowerCase();
+                let text;
+                
+                if (ext === 'txt') {
+                    // Пробуем UTF-8
+                    text = await entry.async('text');
+                    
+                    // Если не подходит, пробуем cp1251
+                    if (!isValidUTF8(text)) {
+                        const arrayBuffer = await entry.async('arraybuffer');
+                        const decoder = new TextDecoder('windows-1251');
+                        text = decoder.decode(arrayBuffer);
+                    }
+                } else {
+                    text = await entry.async('text');
+                }
+                
+                const words = countWords(text);
+                if (words > 0) {
+                    totalWords += words;
+                }
+            } catch (error) {
+                console.error(`Error processing ${path}:`, error);
+            }
+        }
+        
+        return totalWords > 0 ? totalWords : null;
+    } catch (error) {
+        console.error('Error processing zip file:', error);
+        return null;
+    }
+}
+
 // Обработчики drag & drop
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -199,8 +255,12 @@ async function buildTreeFromEntry(entry, path = '') {
             node.size = file.size;
             stats.totalSize += file.size;
             
+            // Подсчёт слов для zip-архивов
+            if (isZipFile(entry.name)) {
+                node.wordCount = await processZipFile(file);
+            }
             // Подсчёт слов для электронных книг
-            if (isEbook(entry.name)) {
+            else if (isEbook(entry.name)) {
                 node.wordCount = await countWordsInEbook(file);
             }
         }
@@ -274,7 +334,13 @@ async function buildTreeFromFiles(files) {
                     stats.totalSize += file.size;
                     
                     // Добавляем промис для подсчёта слов
-                    if (isEbook(part)) {
+                    if (isZipFile(part)) {
+                        wordCountPromises.push(
+                            processZipFile(file).then(count => {
+                                child.wordCount = count;
+                            })
+                        );
+                    } else if (isEbook(part)) {
                         wordCountPromises.push(
                             countWordsInEbook(file).then(count => {
                                 child.wordCount = count;
