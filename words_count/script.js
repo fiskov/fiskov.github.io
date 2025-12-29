@@ -33,9 +33,16 @@ function isEbook(filename) {
 }
 
 // Подсчёт слов в тексте
-function countWords(text) {
+function countWords(text, isFb2 = false) {
+    let processedText = text;
+    
+    // Для FB2 файлов удаляем содержимое тегов <binary>
+    if (isFb2) {
+        processedText = processedText.replace(/<binary[^>]*>[\s\S]*?<\/binary>/gi, ' ');
+    }
+    
     // Удаляем HTML теги, XML теги и специальные символы
-    const cleanText = text
+    const cleanText = processedText
         .replace(/<[^>]*>/g, ' ') // Удаляем HTML/XML теги
         .replace(/[^\p{L}\p{N}\s]/gu, ' ') // Оставляем только буквы, цифры и пробелы
         .replace(/\s+/g, ' ') // Заменяем множественные пробелы на один
@@ -72,6 +79,7 @@ function isValidUTF8(text) {
 async function countWordsInEbook(file) {
     try {
         const ext = file.name.split('.').pop().toLowerCase();
+        const isFb2 = ext === 'fb2';
         let text;
         
         // Для txt файлов пробуем сначала UTF-8, потом cp1251
@@ -87,7 +95,7 @@ async function countWordsInEbook(file) {
             text = await readFileAsText(file, 'UTF-8');
         }
         
-        return countWords(text);
+        return countWords(text, isFb2);
     } catch (error) {
         console.error('Error counting words:', error);
         return null;
@@ -118,6 +126,7 @@ async function processZipFile(file) {
         for (const { path, entry } of ebookFiles) {
             try {
                 const ext = path.split('.').pop().toLowerCase();
+                const isFb2 = ext === 'fb2';
                 let text;
                 
                 if (ext === 'txt') {
@@ -134,7 +143,7 @@ async function processZipFile(file) {
                     text = await entry.async('text');
                 }
                 
-                const words = countWords(text);
+                const words = countWords(text, isFb2);
                 if (words > 0) {
                     totalWords += words;
                 }
