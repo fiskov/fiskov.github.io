@@ -567,11 +567,21 @@ function formatDateTime(date) {
 // Форматирование времени чтения
 function formatReadingTime(words) {
     const minutes = words / READING_SPEED;
-    const hours = Math.floor(minutes / 60);
+    const totalHours = Math.floor(minutes / 60);
     const mins = Math.floor(minutes % 60);
     
-    if (hours > 0) {
-        return `${hours} ч ${mins} мин`;
+    // Если больше 24 часов, разбиваем на дни
+    if (totalHours >= 24) {
+        const days = Math.floor(totalHours / 24);
+        const hours = totalHours % 24;
+        
+        if (hours > 0) {
+            return `${days} сут ${hours} ч`;
+        } else {
+            return `${days} сут`;
+        }
+    } else if (totalHours > 0) {
+        return `${totalHours} ч ${mins} мин`;
     } else if (mins > 0) {
         return `${mins} мин`;
     } else {
