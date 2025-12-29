@@ -171,6 +171,11 @@ header h1 {
     color: #b0b0b0;
 }
 
+.word-count {
+    color: #888;
+    font-size: 0.9em;
+}
+
 .tree-children {
     margin-left: 16px;
     border-left: 1px solid #555;

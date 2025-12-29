@@ -12,6 +12,52 @@ let stats = {
     totalSize: 0
 };
 
+// Расширения электронных книг
+const EBOOK_EXTENSIONS = ['fb2', 'rtf', 'epub', 'txt', 'docx'];
+
+// Проверка, является ли файл электронной книгой
+function isEbook(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    return EBOOK_EXTENSIONS.includes(ext);
+}
+
+// Подсчёт слов в тексте
+function countWords(text) {
+    // Удаляем HTML теги, XML теги и специальные символы
+    const cleanText = text
+        .replace(/<[^>]*>/g, ' ') // Удаляем HTML/XML теги
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ') // Оставляем только буквы, цифры и пробелы
+        .replace(/\s+/g, ' ') // Заменяем множественные пробелы на один
+        .trim();
+    
+    if (!cleanText) return 0;
+    
+    // Разбиваем на слова и считаем
+    const words = cleanText.split(/\s+/).filter(word => word.length > 0);
+    return words.length;
+}
+
+// Чтение содержимого файла как текста
+async function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsText(file, 'UTF-8');
+    });
+}
+
+// Подсчёт слов в файле электронной книги
+async function countWordsInEbook(file) {
+    try {
+        const text = await readFileAsText(file);
+        return countWords(text);
+    } catch (error) {
+        console.error('Error counting words:', error);
+        return null;
+    }
+}
+
 // Обработчики drag & drop
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -71,14 +117,14 @@ async function processDirectory(directoryEntry) {
 }
 
 // Обработка файлов через input
-function processFilesArray(files) {
+async function processFilesArray(files) {
     stats = { folders: 0, files: 0, totalSize: 0 };
     
     // Получаем имя корневой папки
     const rootPath = files[0].webkitRelativePath.split('/')[0];
     folderNameEl.textContent = `📁 ${rootPath}`;
     
-    const tree = buildTreeFromFiles(files);
+    const tree = await buildTreeFromFiles(files);
     treeView.innerHTML = '';
     renderTree(tree, treeView);
     
@@ -119,6 +165,11 @@ async function buildTreeFromEntry(entry, path = '') {
         if (file) {
             node.size = file.size;
             stats.totalSize += file.size;
+            
+            // Подсчёт слов для электронных книг
+            if (isEbook(entry.name)) {
+                node.wordCount = await countWordsInEbook(file);
+            }
         }
     }
     
@@ -153,7 +204,7 @@ function getFileFromEntry(fileEntry) {
 }
 
 // Построение дерева из массива файлов
-function buildTreeFromFiles(files) {
+async function buildTreeFromFiles(files) {
     const root = {
         name: files[0].webkitRelativePath.split('/')[0],
         type: 'folder',
@@ -162,6 +213,9 @@ function buildTreeFromFiles(files) {
     };
     
     stats.folders = 1;
+    
+    // Создаём промисы для подсчёта слов
+    const wordCountPromises = [];
     
     files.forEach(file => {
         const parts = file.webkitRelativePath.split('/').slice(1);
@@ -177,13 +231,23 @@ function buildTreeFromFiles(files) {
                     name: part,
                     type: isFile ? 'file' : 'folder',
                     children: [],
-                    path: parts.slice(0, index + 1).join('/')
+                    path: parts.slice(0, index + 1).join('/'),
+                    file: isFile ? file : null
                 };
                 
                 if (isFile) {
                     child.size = file.size;
                     stats.files++;
                     stats.totalSize += file.size;
+                    
+                    // Добавляем промис для подсчёта слов
+                    if (isEbook(part)) {
+                        wordCountPromises.push(
+                            countWordsInEbook(file).then(count => {
+                                child.wordCount = count;
+                            })
+                        );
+                    }
                 } else {
                     stats.folders++;
                 }
@@ -194,6 +258,9 @@ function buildTreeFromFiles(files) {
             current = child;
         });
     });
+    
+    // Ждём завершения всех подсчётов слов
+    await Promise.all(wordCountPromises);
     
     // Сортировка
     sortTree(root);
@@ -248,7 +315,13 @@ function renderTree(node, container, level = 0) {
     
     const name = document.createElement('span');
     name.className = `tree-name tree-${node.type}`;
-    name.textContent = node.name;
+    
+    // Добавляем количество слов для электронных книг
+    if (node.type === 'file' && node.wordCount !== undefined && node.wordCount !== null) {
+        name.textContent = `[${node.wordCount.toLocaleString()}] ${node.name}`;
+    } else {
+        name.textContent = node.name;
+    }
     
     if (node.type === 'file' && node.size !== undefined) {
         name.textContent += ` (${formatSize(node.size)})`;
