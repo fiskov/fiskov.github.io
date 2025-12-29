@@ -4,12 +4,19 @@ const treeContainer = document.getElementById('treeContainer');
 const treeView = document.getElementById('treeView');
 const folderNameEl = document.getElementById('folderName');
 const clearBtn = document.getElementById('clearBtn');
+const timingInfo = document.getElementById('timingInfo');
 
 // Статистика
 let stats = {
     folders: 0,
     files: 0,
     totalSize: 0
+};
+
+// Время обработки
+let processingTimes = {
+    startTime: null,
+    endTime: null
 };
 
 // Расширения электронных книг
@@ -185,10 +192,12 @@ dropZone.addEventListener('click', () => {
 
 // Обработка папки через drag & drop
 async function processDirectory(directoryEntry) {
+    processingTimes.startTime = new Date();
     stats = { folders: 0, files: 0, totalSize: 0 };
     
     folderNameEl.textContent = `📁 ${directoryEntry.name}`;
     treeView.innerHTML = '';
+    timingInfo.innerHTML = '';
     
     const tree = await buildTreeFromEntry(directoryEntry);
     
@@ -197,27 +206,36 @@ async function processDirectory(directoryEntry) {
     
     renderTree(tree, treeView);
     
+    processingTimes.endTime = new Date();
+    
     addStats();
+    displayTimingInfo();
     treeContainer.classList.remove('hidden');
 }
 
 // Обработка файлов через input
 async function processFilesArray(files) {
+    processingTimes.startTime = new Date();
     stats = { folders: 0, files: 0, totalSize: 0 };
     
     // Получаем имя корневой папки
     const rootPath = files[0].webkitRelativePath.split('/')[0];
     folderNameEl.textContent = `📁 ${rootPath}`;
     
+    treeView.innerHTML = '';
+    timingInfo.innerHTML = '';
+    
     const tree = await buildTreeFromFiles(files);
     
     // Подсчитываем суммы слов для всех папок
     calculateFolderWordCount(tree);
     
-    treeView.innerHTML = '';
     renderTree(tree, treeView);
     
+    processingTimes.endTime = new Date();
+    
     addStats();
+    displayTimingInfo();
     treeContainer.classList.remove('hidden');
 }
 
@@ -536,9 +554,30 @@ function addStats() {
     treeView.parentElement.appendChild(statsDiv);
 }
 
+// Форматирование даты и времени
+function formatDateTime(date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+// Отображение информации о времени обработки
+function displayTimingInfo() {
+    if (!processingTimes.startTime || !processingTimes.endTime) return;
+    
+    const duration = (processingTimes.endTime - processingTimes.startTime) / 1000;
+    
+    timingInfo.innerHTML = `
+        <div><span class="timing-label">Начало обработки:</span> <span class="timing-value">${formatDateTime(processingTimes.startTime)}</span></div>
+        <div><span class="timing-label">Окончание обработки:</span> <span class="timing-value">${formatDateTime(processingTimes.endTime)}</span></div>
+        <div><span class="timing-label">Затраченное время:</span> <span class="timing-value">${duration.toFixed(2)} сек</span></div>
+    `;
+}
+
 // Очистка
 clearBtn.addEventListener('click', () => {
     treeContainer.classList.add('hidden');
     treeView.innerHTML = '';
+    timingInfo.innerHTML = '';
     stats = { folders: 0, files: 0, totalSize: 0 };
+    processingTimes = { startTime: null, endTime: null };
 });
