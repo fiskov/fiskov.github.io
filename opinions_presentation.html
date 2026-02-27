@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expressing Opinions - English Class</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #90EE90;
+            overflow: hidden;
+        }
+
+        .slide-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            transition: transform 0.5s ease;
+        }
+
+        .slide {
+            min-width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            background: linear-gradient(135deg, #90EE90 0%, #98FB98 100%);
+        }
+
+        .slide h1 {
+            font-size: 3.5em;
+            color: #2d5016;
+            margin-bottom: 30px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .slide h2 {
+            font-size: 2.5em;
+            color: #2d5016;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .slide h3 {
+            font-size: 2em;
+            color: #3d6b1f;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .phrase-box {
+            background: white;
+            padding: 25px 40px;
+            margin: 15px 0;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 80%;
+            max-width: 900px;
+        }
+
+        .phrase-box .phrase {
+            font-size: 1.8em;
+            color: #2d5016;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .phrase-box .meaning {
+            font-size: 1.2em;
+            color: #555;
+            font-style: italic;
+        }
+
+        .discussion-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 85%;
+            max-width: 1000px;
+        }
+
+        .discussion-box h4 {
+            font-size: 1.6em;
+            color: #2d5016;
+            margin-bottom: 15px;
+        }
+
+        .discussion-box ul {
+            list-style-position: inside;
+            font-size: 1.3em;
+            color: #333;
+            line-height: 1.8;
+        }
+
+        .discussion-box li {
+            margin: 10px 0;
+        }
+
+        .tip-box {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px 30px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 5px solid #3d6b1f;
+            width: 80%;
+            max-width: 900px;
+        }
+
+        .tip-box strong {
+            color: #2d5016;
+            font-size: 1.3em;
+        }
+
+        .tip-box p {
+            font-size: 1.2em;
+            color: #444;
+            margin-top: 8px;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .controls button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: #3d6b1f;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: background 0.3s;
+        }
+
+        .controls button:hover {
+            background: #2d5016;
+        }
+
+        .controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            font-size: 1.3em;
+            color: #2d5016;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .subtitle {
+            font-size: 1.5em;
+            color: #3d6b1f;
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container" id="slideContainer">
+        <!-- Slide 1: Title -->
+        <div class="slide">
+            <h1>Expressing Opinions</h1>
+            <p class="subtitle">Useful Phrases for English Conversations</p>
+        </div>
+
+        <!-- Slide 2: Original Phrases -->
+        <div class="slide">
+            <h2>Key Phrases</h2>
+            <div class="phrase-box">
+                <div class="phrase">It resonates with me</div>
+                <div class="meaning">Something deeply connects with your feelings or beliefs</div>
+            </div>
+            <div class="phrase-box">
+                <div class="phrase">I see eye to eye with you on...</div>
+                <div class="meaning">You completely agree with someone</div>
+            </div>
+            <div class="phrase-box">
+                <div class="phrase">What's your take on that?</div>
+                <div class="meaning">Asking for someone's opinion</div>
+            </div>
+            <div class="phrase-box">
+                <div class="phrase">Frankly / To be perfectly frank</div>
+                <div class="meaning">Speaking honestly and directly</div>
+            </div>
+        </div>
+
+        <!-- Slide 3: New Phrases 1-2 -->
+        <div class="slide">
+            <h2>More Ways to Express Opinions</h2>
+            <div class="phrase-box">
+                <div class="phrase">I'm inclined to think that...</div>
+                <div class="meaning">A polite way to express your opinion while showing you've given it thought</div>
+            </div>
+            <div class="phrase-box">
+                <div class="phrase">From my perspective / From where I stand...</div>
+                <div class="meaning">Introduces your viewpoint while acknowledging others may see things differently</div>
+            </div>
+        </div>
+
+        <!-- Slide 4: New Phrases 3-4 -->
+        <div class="slide">
+            <h2>Disagreeing Politely</h2>
+            <div class="phrase-box">
+                <div class="phrase">I beg to differ</div>
+                <div class="meaning">A formal, polite way to disagree with someone</div>
+            </div>
+            <div class="phrase-box">
+                <div class="phrase">That's a fair point, but...</div>
+                <div class="meaning">Acknowledges the other person's opinion before presenting a contrasting view</div>
+            </div>
+        </div>
+
+        <!-- Slide 5: New Phrases 5-6 -->
+        <div class="slide">
+            <h2>Expressing Uncertainty & Personal Views</h2>
+            <div class="phrase-box">
+                <div class="phrase">I'm of two minds about...</div>
+                <div class="meaning">Expresses uncertainty or conflicting feelings about a topic</div>
+            </div>
+            <div class="phrase-box">
+                <div class="phrase">If you ask me... / The way I see it...</div>
+                <div class="meaning">Casual phrases to introduce your personal opinion</div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Teaching Tips -->
+        <div class="slide">
+            <h2>Teaching Tips</h2>
+            <div class="tip-box">
+                <strong>Formality Levels:</strong>
+                <p>"I beg to differ" is more formal, while "If you ask me" is casual</p>
+            </div>
+            <div class="tip-box">
+                <strong>Agreement vs. Disagreement:</strong>
+                <p>Mix phrases that show agreement with those for disagreement</p>
+            </div>
+            <div class="tip-box">
+                <strong>Hedging Language:</strong>
+                <p>Phrases like "I'm inclined to think" soften opinions, making them less direct</p>
+            </div>
+            <div class="tip-box">
+                <strong>Conversation Flow:</strong>
+                <p>"That's a fair point, but..." is excellent for respectful debates</p>
+            </div>
+        </div>
+
+        <!-- Slide 7: Discussion 1 -->
+        <div class="slide">
+            <h2>Discussion Activity 1</h2>
+            <div class="discussion-box">
+                <h4>Topic: Social Media</h4>
+                <ul>
+                    <li>Do you think social media has a positive or negative impact on society?</li>
+                    <li>Practice using: "From my perspective..." and "I'm inclined to think that..."</li>
+                    <li>If you disagree with your partner, try: "I beg to differ" or "That's a fair point, but..."</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 8: Discussion 2 -->
+        <div class="slide">
+            <h2>Discussion Activity 2</h2>
+            <div class="discussion-box">
+                <h4>Topic: Remote Work vs. Office Work</h4>
+                <ul>
+                    <li>Which do you prefer and why?</li>
+                    <li>Ask your partner: "What's your take on that?"</li>
+                    <li>Express agreement with: "It resonates with me" or "I see eye to eye with you on..."</li>
+                    <li>Share honestly using: "Frankly..." or "To be perfectly frank..."</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 9: Discussion 3 -->
+        <div class="slide">
+            <h2>Discussion Activity 3</h2>
+            <div class="discussion-box">
+                <h4>Topic: Learning Languages</h4>
+                <ul>
+                    <li>What's the best way to learn a new language?</li>
+                    <li>If you're uncertain, use: "I'm of two minds about..."</li>
+                    <li>Share your view with: "If you ask me..." or "The way I see it..."</li>
+                    <li>Practice all the phrases you've learned today!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 10: Summary -->
+        <div class="slide">
+            <h2>Summary</h2>
+            <h3>You've learned 10 phrases for expressing opinions!</h3>
+            <div class="discussion-box">
+                <h4>Remember:</h4>
+                <ul>
+                    <li>Use formal phrases in professional settings</li>
+                    <li>Casual phrases work well with friends</li>
+                    <li>Always be respectful when disagreeing</li>
+                    <li>Practice makes perfect!</li>
+                </ul>
+            </div>
+            <p class="subtitle" style="margin-top: 40px;">Keep practicing these phrases in your daily conversations!</p>
+        </div>
+    </div>
+
+    <div class="slide-counter" id="slideCounter">1 / 10</div>
+
+    <div class="controls">
+        <button id="prevBtn" onclick="changeSlide(-1)">← Previous</button>
+        <button id="nextBtn" onclick="changeSlide(1)">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const totalSlides = 10;
+
+        function updateSlide() {
+            const container = document.getElementById('slideContainer');
+            container.style.transform = `translateX(-${currentSlide * 100}vw)`;
+            
+            document.getElementById('slideCounter').textContent = `${currentSlide + 1} / ${totalSlides}`;
+            
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+        }
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide < 0) currentSlide = 0;
+            if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
+            updateSlide();
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+            if (e.key === 'ArrowRight') changeSlide(1);
+        });
+
+        // Initialize
+        updateSlide();
+    </script>
+</body>
+</html>
