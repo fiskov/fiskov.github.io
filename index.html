@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fiskov tools</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0d0d1a;
+            color: #e0e0ff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 48px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #e0e0ff;
+        }
+
+        header p {
+            color: #8888bb;
+            font-size: 0.9rem;
+            margin-top: 6px;
+        }
+
+        .tools-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+            max-width: 560px;
+        }
+
+        .tool-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: #13132a;
+            border: 1px solid #2a2a55;
+            color: #e0e0ff;
+            text-decoration: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .tool-link:hover {
+            border-color: #5555cc;
+            background: #1a1a35;
+        }
+
+        .tool-icon {
+            font-size: 1.6rem;
+            flex-shrink: 0;
+        }
+
+        .tool-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .tool-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #e0e0ff;
+        }
+
+        .tool-desc {
+            font-size: 0.8rem;
+            color: #8888bb;
+        }
+
+        footer {
+            margin-top: 48px;
+            font-size: 0.75rem;
+            color: #444466;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🛠 fiskov tools</h1>
+        <p>A collection of browser-based utilities</p>
+    </header>
+
+    <div class="tools-list">
+        <a class="tool-link" href="hex_merger/index.html">
+            <span class="tool-icon">🔧</span>
+            <div class="tool-info">
+                <span class="tool-name">HEX File Merger</span>
+                <span class="tool-desc">Merge up to 4 Intel HEX / BIN files into a single binary or HEX output</span>
+            </div>
+        </a>
+        <a class="tool-link" href="words_count/index.html">
+            <span class="tool-icon">📁</span>
+            <div class="tool-info">
+                <span class="tool-name">Folder Word Counter</span>
+                <span class="tool-desc">Browse a folder and count words across e-book files (fb2, epub, txt, docx…)</span>
+            </div>
+        </a>
+    </div>
+
+    <footer>fiskov.github.io</footer>
+</body>
+</html>
