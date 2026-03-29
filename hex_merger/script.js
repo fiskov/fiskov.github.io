@@ -350,7 +350,7 @@ function toIntelHex(data, baseOffset = 0) {
 
 // ===== Minimap =====
 
-function renderMinimap() {
+function renderMinimapCore() {
     const W = minimapCanvas.width;
     const H = minimapCanvas.height;
     const imageData = minimapCtx.createImageData(W, H);
@@ -408,6 +408,11 @@ function renderMinimap() {
 
     addrStart.textContent = toHex8(0);
     addrEnd.textContent   = toHex8(totalSize);
+}
+
+function renderMinimap() {
+    renderMinimapCore();
+    if (typeof enlargedVisible !== 'undefined' && enlargedVisible) renderEnlargedMap();
 }
 
 // ===== Minimap Tooltip =====
@@ -606,6 +611,111 @@ downloadHexBtn.addEventListener('click', () => {
     const stm32Cb = document.getElementById('stm32BaseAddr');
     const baseOffset = stm32Cb && stm32Cb.checked ? STM32_BASE : 0;
     triggerDownload(new TextEncoder().encode(toIntelHex(merged, baseOffset)), 'merged.hex', 'text/plain');
+});
+
+// ===== Enlarged Byte View =====
+
+const enlargedSection = document.getElementById('enlargedSection');
+const enlargedCanvas  = document.getElementById('enlargedMap');
+const enlargedCtx     = enlargedCanvas.getContext('2d');
+const enlargedWrap    = document.getElementById('enlargedWrap');
+const enlargedStatus  = document.getElementById('enlargedStatus');
+const expandBtn       = document.getElementById('expandBtn');
+
+let enlargedVisible = false;
+
+// Bytes per row in the enlarged view (fixed width = container width / 1px per byte)
+const ENLARGED_BYTES_PER_ROW = 256;
+
+/**
+ * Render the enlarged byte-level view.
+ * Each pixel = 1 byte. Brightness = byte value (0x00=black, 0xFF=white).
+ * Tinted by slot color. Empty (0xFF) shown as dark background color.
+ */
+function renderEnlargedMap() {
+    if (!enlargedVisible) return;
+
+    const { merged, ownerMap } = buildMergedBuffer();
+    const rows = Math.ceil(totalSize / ENLARGED_BYTES_PER_ROW);
+    const W = ENLARGED_BYTES_PER_ROW;
+    const H = rows;
+
+    enlargedCanvas.width  = W;
+    enlargedCanvas.height = H;
+
+    const imageData = enlargedCtx.createImageData(W, H);
+    const pixels = imageData.data;
+
+    for (let i = 0; i < totalSize; i++) {
+        const val   = merged[i];
+        const owner = ownerMap[i];
+        const px    = i % W;
+        const py    = Math.floor(i / W);
+        const idx4  = (py * W + px) * 4;
+
+        if (owner < 0) {
+            // Empty — dark background
+            pixels[idx4]     = EMPTY_COLOR_RGB[0];
+            pixels[idx4 + 1] = EMPTY_COLOR_RGB[1];
+            pixels[idx4 + 2] = EMPTY_COLOR_RGB[2];
+            pixels[idx4 + 3] = 255;
+        } else {
+            // Tint slot color by byte brightness
+            // brightness t = val/255; color = slot_color * t (so 0x00=black, 0xFF=full slot color)
+            const t = val / 255;
+            const sc = SLOT_COLORS_RGB[owner];
+            pixels[idx4]     = Math.round(sc[0] * t);
+            pixels[idx4 + 1] = Math.round(sc[1] * t);
+            pixels[idx4 + 2] = Math.round(sc[2] * t);
+            pixels[idx4 + 3] = 255;
+        }
+    }
+
+    enlargedCtx.putImageData(imageData, 0, 0);
+}
+
+// Toggle enlarged view
+expandBtn.addEventListener('click', () => {
+    enlargedVisible = !enlargedVisible;
+    enlargedSection.style.display = enlargedVisible ? 'block' : 'none';
+    expandBtn.textContent = enlargedVisible ? '⤡ Collapse' : '⤢ Expand';
+    expandBtn.classList.toggle('active', enlargedVisible);
+    if (enlargedVisible) renderEnlargedMap();
+});
+
+// Mouse hover on enlarged canvas — show address + value in status bar
+enlargedCanvas.addEventListener('mousemove', (e) => {
+    const rect   = enlargedCanvas.getBoundingClientRect();
+    const scaleX = enlargedCanvas.width  / rect.width;
+    const scaleY = enlargedCanvas.height / rect.height;
+    const px = Math.floor((e.clientX - rect.left) * scaleX);
+    const py = Math.floor((e.clientY - rect.top)  * scaleY);
+    const addr = py * ENLARGED_BYTES_PER_ROW + px;
+
+    if (addr < 0 || addr >= totalSize) {
+        enlargedStatus.textContent = 'Hover over the map to inspect bytes';
+        return;
+    }
+
+    const { merged, ownerMap } = buildMergedBuffer();
+    const val   = merged[addr];
+    const owner = ownerMap[addr];
+
+    let slotInfo = 'Empty';
+    let colorStyle = '';
+    if (owner >= 0 && slots[owner]) {
+        slotInfo = `Slot ${owner + 1}: ${slots[owner].name}`;
+        colorStyle = `color:${SLOT_COLORS_HEX[owner]}`;
+    }
+
+    enlargedStatus.innerHTML =
+        `Address: <b>${toHex8(addr)}</b> (${addr.toLocaleString()}) &nbsp;|&nbsp; ` +
+        `Value: <b>0x${val.toString(16).toUpperCase().padStart(2,'0')}</b> (${val}) &nbsp;|&nbsp; ` +
+        `<span style="${colorStyle}">${slotInfo}</span>`;
+});
+
+enlargedCanvas.addEventListener('mouseleave', () => {
+    enlargedStatus.textContent = 'Hover over the map to inspect bytes';
 });
 
 // ===== Init =====

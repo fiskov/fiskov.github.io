@@ -41,6 +41,7 @@
             <div class="minimap-header">
                 <h2>Memory Map</h2>
                 <span class="minimap-hint" id="minimapHint">No files loaded</span>
+                <button class="expand-btn" id="expandBtn" title="Toggle enlarged byte view">⤢ Expand</button>
             </div>
             <div class="minimap-wrapper">
                 <div class="minimap-labels">
@@ -58,6 +59,18 @@
                 </div>
             </div>
             <div class="minimap-tooltip" id="minimapTooltip" style="display:none"></div>
+
+            <!-- Enlarged byte view -->
+            <div class="enlarged-section" id="enlargedSection" style="display:none">
+                <div class="enlarged-header">
+                    <span class="enlarged-title">Byte View</span>
+                    <span class="enlarged-hint">Each pixel = 1 byte &nbsp;|&nbsp; brightness = value (0x00=black, 0xFF=white) &nbsp;|&nbsp; tinted by slot color</span>
+                </div>
+                <div class="enlarged-canvas-wrap" id="enlargedWrap">
+                    <canvas id="enlargedMap"></canvas>
+                </div>
+                <div class="enlarged-status" id="enlargedStatus">Hover over the map to inspect bytes</div>
+            </div>
         </div>
 
         <!-- Download Actions -->

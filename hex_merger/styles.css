@@ -311,7 +311,7 @@ header h1 {
 
 .minimap-header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
     margin-bottom: 14px;
 }
@@ -325,6 +325,77 @@ header h1 {
 .minimap-hint {
     font-size: 0.8rem;
     color: var(--text-hint);
+}
+
+.expand-btn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.expand-btn:hover {
+    border-color: var(--border-focus);
+    color: var(--text-primary);
+}
+
+.expand-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ===== Enlarged Byte View ===== */
+.enlarged-section {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+}
+
+.enlarged-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.enlarged-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.enlarged-hint {
+    font-size: 0.75rem;
+    color: var(--text-hint);
+}
+
+.enlarged-canvas-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 480px;
+    border: 1px solid var(--border);
+    background: #000;
+    cursor: crosshair;
+}
+
+#enlargedMap {
+    display: block;
+    image-rendering: pixelated;
+}
+
+.enlarged-status {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    color: var(--text-secondary);
+    min-height: 32px;
 }
 
 .minimap-wrapper {
