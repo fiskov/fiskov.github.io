@@ -140,15 +140,9 @@ header h1 {
 /* ===== Slots Grid ===== */
 .slots-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 16px;
     margin-bottom: 24px;
-}
-
-@media (max-width: 680px) {
-    .slots-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 /* ===== Slot Card ===== */
