@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEX File Merger</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 HEX File Merger <span class="version">v1.0</span></h1>
+            <p class="subtitle">Merge up to 4 Intel HEX / BIN files into a single binary or HEX output</p>
+        </header>
+
+        <!-- Total Size Selector -->
+        <div class="groupbox">
+            <div class="groupbox-title">Total Flash Size</div>
+            <div class="groupbox-content size-selector">
+                <label class="radio-label">
+                    <input type="radio" name="totalSize" value="262144"> 256 KB
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="totalSize" value="524288" checked> 512 KB
+                </label>
+                <span class="size-info" id="sizeInfo">512 KB = 0x80000 bytes</span>
+            </div>
+        </div>
+
+        <!-- 4 Drop Zones -->
+        <div class="slots-grid">
+            <!-- Slot 0 -->
+            <div class="slot-card" id="slot-0" data-slot="0">
+                <div class="slot-header slot-color-0">
+                    <span class="slot-label">Slot 1</span>
+                    <button class="slot-clear-btn" id="clear-0" title="Clear slot" style="display:none">✕</button>
+                </div>
+                <div class="drop-zone" id="drop-0">
+                    <div class="drop-zone-content">
+                        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <p class="drop-text">Drop .hex or .bin file</p>
+                        <p class="drop-hint">or click to browse</p>
+                    </div>
+                </div>
+                <div class="file-info" id="info-0" style="display:none">
+                    <div class="info-row">
+                        <span class="info-label">📄 Name</span>
+                        <span class="info-value" id="name-0">—</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📍 Offset</span>
+                        <span class="info-value" id="offset-display-0">—</span>
+                        <input class="offset-input" id="offset-input-0" type="text" placeholder="0x00000000" style="display:none" data-slot="0">
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📦 Size</span>
+                        <span class="info-value" id="size-0">—</span>
+                    </div>
+                    <div class="info-row warning-row" id="warning-0" style="display:none">
+                        <span class="warning-text" id="warning-text-0"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slot 1 -->
+            <div class="slot-card" id="slot-1" data-slot="1">
+                <div class="slot-header slot-color-1">
+                    <span class="slot-label">Slot 2</span>
+                    <button class="slot-clear-btn" id="clear-1" title="Clear slot" style="display:none">✕</button>
+                </div>
+                <div class="drop-zone" id="drop-1">
+                    <div class="drop-zone-content">
+                        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <p class="drop-text">Drop .hex or .bin file</p>
+                        <p class="drop-hint">or click to browse</p>
+                    </div>
+                </div>
+                <div class="file-info" id="info-1" style="display:none">
+                    <div class="info-row">
+                        <span class="info-label">📄 Name</span>
+                        <span class="info-value" id="name-1">—</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📍 Offset</span>
+                        <span class="info-value" id="offset-display-1">—</span>
+                        <input class="offset-input" id="offset-input-1" type="text" placeholder="0x00000000" style="display:none" data-slot="1">
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📦 Size</span>
+                        <span class="info-value" id="size-1">—</span>
+                    </div>
+                    <div class="info-row warning-row" id="warning-1" style="display:none">
+                        <span class="warning-text" id="warning-text-1"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slot 2 -->
+            <div class="slot-card" id="slot-2" data-slot="2">
+                <div class="slot-header slot-color-2">
+                    <span class="slot-label">Slot 3</span>
+                    <button class="slot-clear-btn" id="clear-2" title="Clear slot" style="display:none">✕</button>
+                </div>
+                <div class="drop-zone" id="drop-2">
+                    <div class="drop-zone-content">
+                        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <p class="drop-text">Drop .hex or .bin file</p>
+                        <p class="drop-hint">or click to browse</p>
+                    </div>
+                </div>
+                <div class="file-info" id="info-2" style="display:none">
+                    <div class="info-row">
+                        <span class="info-label">📄 Name</span>
+                        <span class="info-value" id="name-2">—</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📍 Offset</span>
+                        <span class="info-value" id="offset-display-2">—</span>
+                        <input class="offset-input" id="offset-input-2" type="text" placeholder="0x00000000" style="display:none" data-slot="2">
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📦 Size</span>
+                        <span class="info-value" id="size-2">—</span>
+                    </div>
+                    <div class="info-row warning-row" id="warning-2" style="display:none">
+                        <span class="warning-text" id="warning-text-2"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slot 3 -->
+            <div class="slot-card" id="slot-3" data-slot="3">
+                <div class="slot-header slot-color-3">
+                    <span class="slot-label">Slot 4</span>
+                    <button class="slot-clear-btn" id="clear-3" title="Clear slot" style="display:none">✕</button>
+                </div>
+                <div class="drop-zone" id="drop-3">
+                    <div class="drop-zone-content">
+                        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <p class="drop-text">Drop .hex or .bin file</p>
+                        <p class="drop-hint">or click to browse</p>
+                    </div>
+                </div>
+                <div class="file-info" id="info-3" style="display:none">
+                    <div class="info-row">
+                        <span class="info-label">📄 Name</span>
+                        <span class="info-value" id="name-3">—</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📍 Offset</span>
+                        <span class="info-value" id="offset-display-3">—</span>
+                        <input class="offset-input" id="offset-input-3" type="text" placeholder="0x00000000" style="display:none" data-slot="3">
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">📦 Size</span>
+                        <span class="info-value" id="size-3">—</span>
+                    </div>
+                    <div class="info-row warning-row" id="warning-3" style="display:none">
+                        <span class="warning-text" id="warning-text-3"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Minimap -->
+        <div class="minimap-section">
+            <div class="minimap-header">
+                <h2>Memory Map</h2>
+                <span class="minimap-hint" id="minimapHint">No files loaded</span>
+            </div>
+            <div class="minimap-wrapper">
+                <div class="minimap-labels">
+                    <span class="minimap-addr" id="addrStart">0x00000000</span>
+                    <span class="minimap-addr" id="addrEnd">0x00080000</span>
+                </div>
+                <canvas id="minimap" width="800" height="64"></canvas>
+                <div class="minimap-legend" id="minimapLegend">
+                    <span class="legend-item"><span class="legend-color" style="background:#2a2a3e"></span> Empty (0xFF)</span>
+                    <span class="legend-item"><span class="legend-color slot-color-0-bg"></span> Slot 1</span>
+                    <span class="legend-item"><span class="legend-color slot-color-1-bg"></span> Slot 2</span>
+                    <span class="legend-item"><span class="legend-color slot-color-2-bg"></span> Slot 3</span>
+                    <span class="legend-item"><span class="legend-color slot-color-3-bg"></span> Slot 4</span>
+                    <span class="legend-item"><span class="legend-color" style="background:#ff3333"></span> Overlap!</span>
+                </div>
+            </div>
+            <div class="minimap-tooltip" id="minimapTooltip" style="display:none"></div>
+        </div>
+
+        <!-- Download Actions -->
+        <div class="action-bar">
+            <button class="action-btn download-bin" id="downloadBin" disabled>
+                ⬇ Download .bin
+            </button>
+            <button class="action-btn download-hex" id="downloadHex" disabled>
+                ⬇ Download .hex
+            </button>
+            <span class="action-info" id="actionInfo">Load at least one file to enable export</span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
