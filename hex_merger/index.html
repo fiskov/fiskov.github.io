@@ -18,12 +18,18 @@
             <div class="groupbox-title">Total Flash Size</div>
             <div class="groupbox-content size-selector">
                 <label class="radio-label">
+                    <input type="radio" name="totalSize" value="131072"> 128 KB
+                </label>
+                <label class="radio-label">
                     <input type="radio" name="totalSize" value="262144"> 256 KB
                 </label>
                 <label class="radio-label">
                     <input type="radio" name="totalSize" value="524288" checked> 512 KB
                 </label>
-                <span class="size-info" id="sizeInfo">512 KB = 0x80000 bytes</span>
+                <label class="radio-label">
+                    <input type="radio" name="totalSize" value="1048576"> 1024 KB
+                </label>
+                <span class="size-info" id="sizeInfo">512 KB = 0x00080000 bytes</span>
             </div>
         </div>
 
