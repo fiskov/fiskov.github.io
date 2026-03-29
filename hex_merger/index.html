@@ -98,9 +98,18 @@
             <button class="action-btn download-hex" id="downloadHex" disabled>
                 ⬇ Download .hex
             </button>
-            <label class="checkbox-label" title="Adds 0x08000000 base address to all HEX output records (STM32 flash start)">
-                <input type="checkbox" id="stm32BaseAddr"> STM32 base (0x08000000)
-            </label>
+            <div class="action-options">
+                <label class="checkbox-label" title="Adds 0x08000000 base address to all HEX output records (STM32 flash start)">
+                    <input type="checkbox" id="stm32BaseAddr"> STM32 base (0x08000000)
+                </label>
+                <label class="checkbox-label" title="Remove trailing filler bytes from the end of the .bin output">
+                    <input type="checkbox" id="trimBin"> Trim .bin
+                </label>
+                <label class="action-opt-label" for="fillerByteInput" title="Byte value used to fill empty regions (default 0xFF)">Filler byte:</label>
+                <input type="text" id="fillerByteInput" class="action-opt-input" value="0xFF" maxlength="4" title="Hex value, e.g. 0xFF or FF">
+                <label class="action-opt-label" for="outputNameInput">Filename:</label>
+                <input type="text" id="outputNameInput" class="action-opt-input action-opt-name" value="merged" maxlength="64" title="Output filename without extension">
+            </div>
             <span class="action-info" id="actionInfo">Load at least one file to enable export</span>
         </div>
     </div>

@@ -283,8 +283,16 @@ function parseBin(buffer, offset) {
 
 // ===== Merge =====
 
+function getFillerByte() {
+    const input = document.getElementById('fillerByteInput');
+    if (!input) return 0xFF;
+    const val = parseHexInput(input.value);
+    return (isNaN(val) || val < 0 || val > 255) ? 0xFF : val;
+}
+
 function buildMergedBuffer() {
-    const merged   = new Uint8Array(totalSize).fill(0xFF);
+    const filler   = getFillerByte();
+    const merged   = new Uint8Array(totalSize).fill(filler);
     const ownerMap = new Int8Array(totalSize).fill(-1);
     const overlapMap = new Uint8Array(totalSize).fill(0);
 
@@ -601,16 +609,37 @@ function triggerDownload(content, filename, mimeType) {
     URL.revokeObjectURL(url);
 }
 
+function getOutputName() {
+    const input = document.getElementById('outputNameInput');
+    const name = input ? input.value.trim() : '';
+    return name.length > 0 ? name : 'merged';
+}
+
 downloadBinBtn.addEventListener('click', () => {
-    const { merged } = buildMergedBuffer();
-    triggerDownload(merged, 'merged.bin', 'application/octet-stream');
+    let { merged } = buildMergedBuffer();
+    const trimCb = document.getElementById('trimBin');
+    if (trimCb && trimCb.checked) {
+        const filler = getFillerByte();
+        let end = merged.length;
+        while (end > 0 && merged[end - 1] === filler) end--;
+        merged = merged.slice(0, end);
+    }
+    triggerDownload(merged, `${getOutputName()}.bin`, 'application/octet-stream');
 });
 
 downloadHexBtn.addEventListener('click', () => {
     const { merged } = buildMergedBuffer();
     const stm32Cb = document.getElementById('stm32BaseAddr');
     const baseOffset = stm32Cb && stm32Cb.checked ? STM32_BASE : 0;
-    triggerDownload(new TextEncoder().encode(toIntelHex(merged, baseOffset)), 'merged.hex', 'text/plain');
+    triggerDownload(new TextEncoder().encode(toIntelHex(merged, baseOffset)), `${getOutputName()}.hex`, 'text/plain');
+});
+
+// Filler byte input — validate and re-render minimap on change
+document.getElementById('fillerByteInput').addEventListener('input', function () {
+    const val = parseHexInput(this.value);
+    const valid = !isNaN(val) && val >= 0 && val <= 255;
+    this.classList.toggle('invalid', !valid);
+    if (valid) renderMinimap();
 });
 
 // ===== Enlarged Byte View =====
