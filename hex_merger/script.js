@@ -124,22 +124,23 @@ function bindSlotEvents(idx) {
         }
     });
 
-    // Drop
+    // Drop — support multiple files
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if (file) processFile(idx, file);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) processFileList(idx, files);
     });
 
-    // Click to browse
+    // Click to browse — support multiple files
     dropZone.addEventListener('click', () => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.hex,.bin';
+        input.multiple = true;
         input.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) processFile(idx, file);
+            const files = Array.from(e.target.files);
+            if (files.length > 0) processFileList(idx, files);
         });
         input.click();
     });
@@ -504,6 +505,23 @@ function updateDownloadButtons() {
 }
 
 // ===== File Processing =====
+
+/**
+ * Process a list of files starting from slot `startIdx`, filling consecutive slots.
+ * @param {number} startIdx
+ * @param {File[]} files
+ */
+async function processFileList(startIdx, files) {
+    for (let i = 0; i < files.length; i++) {
+        const slotIdx = startIdx + i;
+        if (slotIdx >= NUM_SLOTS) break; // no more slots available
+        // Ensure the slot card exists in the DOM
+        while (renderedSlotCount <= slotIdx) {
+            createSlotCard(renderedSlotCount);
+        }
+        await processFile(slotIdx, files[i]);
+    }
+}
 
 async function processFile(idx, file) {
     const ext = file.name.split('.').pop().toLowerCase();
