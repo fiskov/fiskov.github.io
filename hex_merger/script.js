@@ -615,20 +615,34 @@ function getOutputName() {
     return name.length > 0 ? name : 'merged';
 }
 
+/**
+ * If the "Trim" checkbox is checked, strip trailing filler bytes then
+ * pad the result up to the next 8-byte boundary (filled with filler byte).
+ * @param {Uint8Array} merged
+ * @returns {Uint8Array}
+ */
+function applyTrim(merged) {
+    const trimCb = document.getElementById('trimBin');
+    if (!trimCb || !trimCb.checked) return merged;
+    const filler = getFillerByte();
+    let end = merged.length;
+    while (end > 0 && merged[end - 1] === filler) end--;
+    // Round up to 8-byte alignment
+    const aligned = (end + 7) & ~7;
+    const result = new Uint8Array(aligned).fill(filler);
+    result.set(merged.subarray(0, end));
+    return result;
+}
+
 downloadBinBtn.addEventListener('click', () => {
     let { merged } = buildMergedBuffer();
-    const trimCb = document.getElementById('trimBin');
-    if (trimCb && trimCb.checked) {
-        const filler = getFillerByte();
-        let end = merged.length;
-        while (end > 0 && merged[end - 1] === filler) end--;
-        merged = merged.slice(0, end);
-    }
+    merged = applyTrim(merged);
     triggerDownload(merged, `${getOutputName()}.bin`, 'application/octet-stream');
 });
 
 downloadHexBtn.addEventListener('click', () => {
-    const { merged } = buildMergedBuffer();
+    let { merged } = buildMergedBuffer();
+    merged = applyTrim(merged);
     const stm32Cb = document.getElementById('stm32BaseAddr');
     const baseOffset = stm32Cb && stm32Cb.checked ? STM32_BASE : 0;
     triggerDownload(new TextEncoder().encode(toIntelHex(merged, baseOffset)), `${getOutputName()}.hex`, 'text/plain');

@@ -102,8 +102,8 @@
                 <label class="checkbox-label" title="Adds 0x08000000 base address to all HEX output records (STM32 flash start)">
                     <input type="checkbox" id="stm32BaseAddr"> STM32 base (0x08000000)
                 </label>
-                <label class="checkbox-label" title="Remove trailing filler bytes from the end of the .bin output">
-                    <input type="checkbox" id="trimBin"> Trim .bin
+                <label class="checkbox-label" title="Strip trailing filler bytes then pad to 8-byte alignment. Applies to both .bin and .hex output.">
+                    <input type="checkbox" id="trimBin"> Trim output
                 </label>
                 <label class="action-opt-label" for="fillerByteInput" title="Byte value used to fill empty regions (default 0xFF)">Filler byte:</label>
                 <input type="text" id="fillerByteInput" class="action-opt-input" value="0xFF" maxlength="4" title="Hex value, e.g. 0xFF or FF">
