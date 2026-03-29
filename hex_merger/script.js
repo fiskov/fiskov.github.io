@@ -145,14 +145,9 @@ function bindSlotEvents(idx) {
         input.click();
     });
 
-    // Clear button
+    // Clear button — remove this slot and shift remaining slots up
     clearBtn.addEventListener('click', () => {
-        slots[idx] = null;
-        updateSlotUI(idx);
-        // Remove trailing empty slots beyond the first empty one
-        trimEmptySlots();
-        renderMinimap();
-        updateDownloadButtons();
+        removeSlot(idx);
     });
 
     // Offset input (for .bin files)
@@ -179,42 +174,46 @@ function bindSlotEvents(idx) {
 // ===== Slot Management =====
 
 /**
- * Ensure there is exactly one trailing empty slot (if total < NUM_SLOTS).
- * Called after a file is successfully loaded.
+ * Remove slot at `idx`, shift all subsequent slots left, then rebuild DOM.
+ * @param {number} idx
  */
-function ensureTrailingEmptySlot() {
-    // Count how many slots have data
+function removeSlot(idx) {
+    // Shift slots array: remove element at idx, push null at end
+    slots.splice(idx, 1);
+    slots.push(null);
+    rebuildAllSlots();
+    renderMinimap();
+    updateDownloadButtons();
+}
+
+/**
+ * Rebuild all slot cards from scratch based on current slots[] state.
+ * Keeps filled slots + exactly one trailing empty slot (up to NUM_SLOTS).
+ */
+function rebuildAllSlots() {
+    // Remove all existing cards
+    slotsGrid.innerHTML = '';
+    renderedSlotCount = 0;
+
+    // Determine how many cards to show: filled slots + 1 empty (capped at NUM_SLOTS)
     const filledCount = slots.filter(s => s !== null).length;
-    // The next empty slot index = renderedSlotCount (0-based)
-    // We want: renderedSlotCount == filledCount + 1, capped at NUM_SLOTS
-    const desired = Math.min(filledCount + 1, NUM_SLOTS);
-    while (renderedSlotCount < desired) {
-        createSlotCard(renderedSlotCount);
+    const cardCount = Math.min(filledCount + 1, NUM_SLOTS);
+
+    for (let i = 0; i < cardCount; i++) {
+        createSlotCard(i);
+        if (slots[i]) updateSlotUI(i);
     }
 }
 
 /**
- * After clearing a slot, remove any extra trailing empty slot cards
- * beyond the first empty one, keeping at least 1 card.
+ * Ensure there is exactly one trailing empty slot (if total < NUM_SLOTS).
+ * Called after a file is successfully loaded.
  */
-function trimEmptySlots() {
-    // Find the last filled slot index
-    let lastFilled = -1;
-    for (let i = 0; i < renderedSlotCount; i++) {
-        if (slots[i] !== null) lastFilled = i;
-    }
-
-    // We want to keep cards 0..lastFilled+1 (one empty after last filled),
-    // but at least 1 card total.
-    const keepCount = Math.max(1, lastFilled + 2);
-
-    // Remove extra cards from the DOM
-    while (renderedSlotCount > keepCount) {
-        const idx = renderedSlotCount - 1;
-        const card = document.getElementById(`slot-${idx}`);
-        if (card) card.remove();
-        slots[idx] = null;
-        renderedSlotCount--;
+function ensureTrailingEmptySlot() {
+    const filledCount = slots.filter(s => s !== null).length;
+    const desired = Math.min(filledCount + 1, NUM_SLOTS);
+    while (renderedSlotCount < desired) {
+        createSlotCard(renderedSlotCount);
     }
 }
 
