@@ -615,59 +615,79 @@ downloadHexBtn.addEventListener('click', () => {
 
 // ===== Enlarged Byte View =====
 
-const enlargedSection = document.getElementById('enlargedSection');
-const enlargedCanvas  = document.getElementById('enlargedMap');
-const enlargedCtx     = enlargedCanvas.getContext('2d');
-const enlargedWrap    = document.getElementById('enlargedWrap');
-const enlargedStatus  = document.getElementById('enlargedStatus');
-const expandBtn       = document.getElementById('expandBtn');
+const enlargedSection    = document.getElementById('enlargedSection');
+const enlargedCanvas     = document.getElementById('enlargedMap');
+const enlargedCtx        = enlargedCanvas.getContext('2d');
+const enlargedWrap       = document.getElementById('enlargedWrap');
+const enlargedStatus     = document.getElementById('enlargedStatus');
+const enlargedHint       = document.getElementById('enlargedHint');
+const expandBtn          = document.getElementById('expandBtn');
+const pixelSizeSelect    = document.getElementById('pixelSizeSelect');
+const bytesPerRowSelect  = document.getElementById('bytesPerRowSelect');
 
-let enlargedVisible = false;
+let enlargedVisible  = false;
+let enlargedPixelSize   = parseInt(pixelSizeSelect.value);   // px per byte (1–4)
+let enlargedBytesPerRow = parseInt(bytesPerRowSelect.value); // bytes per row
 
-// Bytes per row in the enlarged view (fixed width = container width / 1px per byte)
-const ENLARGED_BYTES_PER_ROW = 256;
+function updateEnlargedHint() {
+    enlargedHint.innerHTML =
+        `Each pixel = ${enlargedPixelSize} px &nbsp;|&nbsp; ` +
+        `${enlargedBytesPerRow} bytes/row &nbsp;|&nbsp; ` +
+        `brightness = value (0x00=black, 0xFF=white) &nbsp;|&nbsp; tinted by slot color`;
+}
 
 /**
  * Render the enlarged byte-level view.
- * Each pixel = 1 byte. Brightness = byte value (0x00=black, 0xFF=white).
- * Tinted by slot color. Empty (0xFF) shown as dark background color.
+ * Each byte is rendered as a (enlargedPixelSize × enlargedPixelSize) block.
+ * Brightness = byte value (0x00=black, 0xFF=white). Tinted by slot color.
+ * Empty (0xFF) shown as dark background color.
  */
 function renderEnlargedMap() {
     if (!enlargedVisible) return;
 
     const { merged, ownerMap } = buildMergedBuffer();
-    const rows = Math.ceil(totalSize / ENLARGED_BYTES_PER_ROW);
-    const W = ENLARGED_BYTES_PER_ROW;
-    const H = rows;
+    const BPR  = enlargedBytesPerRow;
+    const PS   = enlargedPixelSize;
+    const rows = Math.ceil(totalSize / BPR);
+    const W    = BPR * PS;
+    const H    = rows * PS;
 
     enlargedCanvas.width  = W;
     enlargedCanvas.height = H;
 
     const imageData = enlargedCtx.createImageData(W, H);
-    const pixels = imageData.data;
+    const pixels    = imageData.data;
 
     for (let i = 0; i < totalSize; i++) {
         const val   = merged[i];
         const owner = ownerMap[i];
-        const px    = i % W;
-        const py    = Math.floor(i / W);
-        const idx4  = (py * W + px) * 4;
+        const byteCol = i % BPR;
+        const byteRow = Math.floor(i / BPR);
 
+        let r, g, b;
         if (owner < 0) {
-            // Empty — dark background
-            pixels[idx4]     = EMPTY_COLOR_RGB[0];
-            pixels[idx4 + 1] = EMPTY_COLOR_RGB[1];
-            pixels[idx4 + 2] = EMPTY_COLOR_RGB[2];
-            pixels[idx4 + 3] = 255;
+            r = EMPTY_COLOR_RGB[0];
+            g = EMPTY_COLOR_RGB[1];
+            b = EMPTY_COLOR_RGB[2];
         } else {
-            // Tint slot color by byte brightness
-            // brightness t = val/255; color = slot_color * t (so 0x00=black, 0xFF=full slot color)
-            const t = val / 255;
+            const t  = val / 255;
             const sc = SLOT_COLORS_RGB[owner];
-            pixels[idx4]     = Math.round(sc[0] * t);
-            pixels[idx4 + 1] = Math.round(sc[1] * t);
-            pixels[idx4 + 2] = Math.round(sc[2] * t);
-            pixels[idx4 + 3] = 255;
+            r = Math.round(sc[0] * t);
+            g = Math.round(sc[1] * t);
+            b = Math.round(sc[2] * t);
+        }
+
+        // Fill the PS×PS block for this byte
+        for (let dy = 0; dy < PS; dy++) {
+            for (let dx = 0; dx < PS; dx++) {
+                const px   = byteCol * PS + dx;
+                const py   = byteRow * PS + dy;
+                const idx4 = (py * W + px) * 4;
+                pixels[idx4]     = r;
+                pixels[idx4 + 1] = g;
+                pixels[idx4 + 2] = b;
+                pixels[idx4 + 3] = 255;
+            }
         }
     }
 
@@ -680,7 +700,24 @@ expandBtn.addEventListener('click', () => {
     enlargedSection.style.display = enlargedVisible ? 'block' : 'none';
     expandBtn.textContent = enlargedVisible ? '⤡ Collapse' : '⤢ Expand';
     expandBtn.classList.toggle('active', enlargedVisible);
-    if (enlargedVisible) renderEnlargedMap();
+    if (enlargedVisible) {
+        updateEnlargedHint();
+        renderEnlargedMap();
+    }
+});
+
+// Pixel size combobox
+pixelSizeSelect.addEventListener('change', () => {
+    enlargedPixelSize = parseInt(pixelSizeSelect.value);
+    updateEnlargedHint();
+    renderEnlargedMap();
+});
+
+// Bytes-per-row combobox
+bytesPerRowSelect.addEventListener('change', () => {
+    enlargedBytesPerRow = parseInt(bytesPerRowSelect.value);
+    updateEnlargedHint();
+    renderEnlargedMap();
 });
 
 // Mouse hover on enlarged canvas — show address + value in status bar
@@ -688,9 +725,11 @@ enlargedCanvas.addEventListener('mousemove', (e) => {
     const rect   = enlargedCanvas.getBoundingClientRect();
     const scaleX = enlargedCanvas.width  / rect.width;
     const scaleY = enlargedCanvas.height / rect.height;
-    const px = Math.floor((e.clientX - rect.left) * scaleX);
-    const py = Math.floor((e.clientY - rect.top)  * scaleY);
-    const addr = py * ENLARGED_BYTES_PER_ROW + px;
+    const canvasX = Math.floor((e.clientX - rect.left) * scaleX);
+    const canvasY = Math.floor((e.clientY - rect.top)  * scaleY);
+    const byteCol = Math.floor(canvasX / enlargedPixelSize);
+    const byteRow = Math.floor(canvasY / enlargedPixelSize);
+    const addr    = byteRow * enlargedBytesPerRow + byteCol;
 
     if (addr < 0 || addr >= totalSize) {
         enlargedStatus.textContent = 'Hover over the map to inspect bytes';

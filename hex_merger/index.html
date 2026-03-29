@@ -64,7 +64,24 @@
             <div class="enlarged-section" id="enlargedSection" style="display:none">
                 <div class="enlarged-header">
                     <span class="enlarged-title">Byte View</span>
-                    <span class="enlarged-hint">Each pixel = 1 byte &nbsp;|&nbsp; brightness = value (0x00=black, 0xFF=white) &nbsp;|&nbsp; tinted by slot color</span>
+                    <span class="enlarged-hint" id="enlargedHint">Each pixel = 1 byte &nbsp;|&nbsp; brightness = value (0x00=black, 0xFF=white) &nbsp;|&nbsp; tinted by slot color</span>
+                    <div class="enlarged-controls">
+                        <label class="enlarged-ctrl-label" for="pixelSizeSelect">Pixel size:</label>
+                        <select id="pixelSizeSelect" class="enlarged-select">
+                            <option value="1">1 px</option>
+                            <option value="2" selected>2 px</option>
+                            <option value="3">3 px</option>
+                            <option value="4">4 px</option>
+                        </select>
+                        <label class="enlarged-ctrl-label" for="bytesPerRowSelect">Width:</label>
+                        <select id="bytesPerRowSelect" class="enlarged-select">
+                            <option value="64">64 bytes</option>
+                            <option value="128">128 bytes</option>
+                            <option value="256" selected>256 bytes</option>
+                            <option value="512">512 bytes</option>
+                            <option value="1024">1024 bytes</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="enlarged-canvas-wrap" id="enlargedWrap">
                     <canvas id="enlargedMap"></canvas>
