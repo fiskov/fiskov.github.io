@@ -16,6 +16,10 @@ const slots = new Array(NUM_SLOTS).fill(null);
 let totalSize = 512 * 1024; // default 512 KB
 let renderedSlotCount = 0;  // how many slot cards exist in the DOM
 
+// ===== Constants =====
+const HEX_ADDR_MASK  = 0xFFFFF;   // 1 MB mask — strip upper base (e.g. 0x08000000)
+const STM32_BASE     = 0x08000000; // STM32 flash base address
+
 // ===== DOM References =====
 const slotsGrid      = document.getElementById('slots-grid');
 const minimapCanvas  = document.getElementById('minimap');
@@ -230,7 +234,8 @@ function parseIntelHex(buffer) {
         const recType   = parseInt(line.slice(7, 9), 16);
 
         if (recType === 0x00) {
-            const absAddr = extendedAddress + address;
+            // Apply 1M mask to strip upper base address (e.g. 0x08000000)
+            const absAddr = (extendedAddress + address) & HEX_ADDR_MASK;
             if (absAddr < minAddr) minAddr = absAddr;
             if (absAddr + byteCount > maxAddr) maxAddr = absAddr + byteCount;
         } else if (recType === 0x02) {
@@ -254,7 +259,7 @@ function parseIntelHex(buffer) {
         const recType   = parseInt(line.slice(7, 9), 16);
 
         if (recType === 0x00) {
-            const absAddr = extendedAddress + address;
+            const absAddr = (extendedAddress + address) & HEX_ADDR_MASK;
             for (let i = 0; i < byteCount; i++) {
                 data[absAddr - minAddr + i] = parseInt(line.slice(9 + i * 2, 11 + i * 2), 16);
             }
@@ -301,13 +306,20 @@ function buildMergedBuffer() {
 
 // ===== Intel HEX Export =====
 
-function toIntelHex(data) {
+/**
+ * Convert a Uint8Array to Intel HEX format string.
+ * @param {Uint8Array} data
+ * @param {number} baseOffset  Added to every address (e.g. 0x08000000 for STM32)
+ * @returns {string}
+ */
+function toIntelHex(data, baseOffset = 0) {
     const RECORD_SIZE = 16;
     const lines = [];
     let currentUpperAddr = -1;
 
     for (let addr = 0; addr < data.length; addr += RECORD_SIZE) {
-        const upperAddr = (addr >> 16) & 0xFFFF;
+        const absAddr   = addr + baseOffset;
+        const upperAddr = (absAddr >> 16) & 0xFFFF;
 
         if (upperAddr !== currentUpperAddr) {
             currentUpperAddr = upperAddr;
@@ -318,7 +330,7 @@ function toIntelHex(data) {
         }
 
         const count  = Math.min(RECORD_SIZE, data.length - addr);
-        const addrLo = addr & 0xFFFF;
+        const addrLo = absAddr & 0xFFFF;
         const aHi    = (addrLo >> 8) & 0xFF;
         const aLo    = addrLo & 0xFF;
         let sum = count + aHi + aLo;
@@ -574,7 +586,9 @@ downloadBinBtn.addEventListener('click', () => {
 
 downloadHexBtn.addEventListener('click', () => {
     const { merged } = buildMergedBuffer();
-    triggerDownload(new TextEncoder().encode(toIntelHex(merged)), 'merged.hex', 'text/plain');
+    const stm32Cb = document.getElementById('stm32BaseAddr');
+    const baseOffset = stm32Cb && stm32Cb.checked ? STM32_BASE : 0;
+    triggerDownload(new TextEncoder().encode(toIntelHex(merged, baseOffset)), 'merged.hex', 'text/plain');
 });
 
 // ===== Init =====
