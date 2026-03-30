@@ -187,13 +187,35 @@ async function connectDevice() {
 
     // Claim all interfaces
     const ifaces = state.device.configuration?.interfaces ?? [];
+    let anyClaimed = false;
+    let anyProtected = false;
     for (const iface of ifaces) {
       try {
         await state.device.claimInterface(iface.interfaceNumber);
         log(`Claimed interface ${iface.interfaceNumber}`, 'ok');
+        anyClaimed = true;
       } catch (e) {
-        log(`Could not claim interface ${iface.interfaceNumber}: ${e.message}`, 'warn');
+        if (e.message && e.message.toLowerCase().includes('protected class')) {
+          anyProtected = true;
+          log(`Could not claim interface ${iface.interfaceNumber}: protected by kernel driver`, 'warn');
+        } else {
+          log(`Could not claim interface ${iface.interfaceNumber}: ${e.message}`, 'warn');
+        }
       }
+    }
+
+    if (anyProtected && !anyClaimed) {
+      // All interfaces are kernel-owned — treat as a hard failure
+      logProtectedClassHelp();
+      state.connected = false;
+      setStatus('disconnected', 'Connection failed — protected device');
+      try { await state.device.close(); } catch (_) {}
+      updateButtons();
+      return;
+    }
+
+    if (anyProtected) {
+      logProtectedClassHelp();
     }
 
     state.connected = true;
@@ -264,6 +286,40 @@ function logAccessDeniedHelp() {
   log('━━━ macOS / Windows ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'warn');
   log('  macOS: no extra steps needed for most devices.', 'warn');
   log('  Windows: install WinUSB driver via Zadig (https://zadig.akeo.ie/).', 'warn');
+  log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'warn');
+}
+
+/**
+ * Print actionable help when one or more interfaces are owned by a kernel
+ * driver and the browser cannot claim them ("protected class" error).
+ * Common culprits: usbhid (HID devices), cdc_acm (serial/modem), cdc_ether…
+ */
+function logProtectedClassHelp() {
+  const d = state.device;
+  const vid = d ? d.vendorId.toString(16).toLowerCase().padStart(4, '0') : 'xxxx';
+  const pid = d ? d.productId.toString(16).toLowerCase().padStart(4, '0') : 'xxxx';
+
+  log('━━━ Interface protected by kernel driver ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'warn');
+  log('The OS kernel has claimed this interface (e.g. usbhid, cdc_acm, cdc_ether).', 'warn');
+  log('The browser cannot access it until the kernel driver is detached.', 'warn');
+  log('', 'warn');
+  log('── Option A: detach the kernel driver temporarily ──────────────────────────', 'warn');
+  log('  Find the driver name:', 'warn');
+  log(`    lsusb -d ${vid}:${pid} -v | grep -i driver`, 'warn');
+  log('  Then detach it (replace <driver> with the actual name, e.g. usbhid):', 'warn');
+  log('    sudo modprobe -r <driver>', 'warn');
+  log('  Replug the device, then click Connect again.', 'warn');
+  log('  To restore: sudo modprobe <driver>', 'warn');
+  log('', 'warn');
+  log('── Option B: udev rule + plugdev group (Linux) ──────────────────────────────', 'warn');
+  log('  Some devices also need a udev rule so the browser can open them:', 'warn');
+  log(`  SUBSYSTEM=="usb", ATTRS{idVendor}=="${vid}", ATTRS{idProduct}=="${pid}", MODE="0664", GROUP="plugdev"`, 'warn');
+  log(`  Save to /etc/udev/rules.d/99-webusb-${vid}${pid}.rules`, 'warn');
+  log('  sudo udevadm control --reload-rules && sudo udevadm trigger', 'warn');
+  log('  sudo usermod -aG plugdev $USER   ← log out and back in', 'warn');
+  log('', 'warn');
+  log('── Windows ──────────────────────────────────────────────────────────────────', 'warn');
+  log('  Replace the driver with WinUSB using Zadig: https://zadig.akeo.ie/', 'warn');
   log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'warn');
 }
 
