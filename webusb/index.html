@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebUSB Explorer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>🔌 WebUSB Explorer</h1>
+      <p class="subtitle">Connect and communicate with USB devices directly from your browser</p>
+    </header>
+
+    <!-- Browser Support Banner -->
+    <div id="unsupported-banner" class="banner banner--error hidden">
+      ⚠️ WebUSB is not supported in this browser. Please use Chrome or Edge (desktop).
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span class="status-indicator" id="status-indicator"></span>
+      <span id="status-text">No device connected</span>
+    </div>
+
+    <!-- Controls -->
+    <section class="card">
+      <h2>Device Control</h2>
+      <div class="button-row">
+        <button id="btn-request" class="btn btn--primary" title="Request USB device access">
+          🔍 Request Device
+        </button>
+        <button id="btn-connect" class="btn btn--success" disabled title="Open device connection">
+          ⚡ Connect
+        </button>
+        <button id="btn-disconnect" class="btn btn--danger" disabled title="Close device connection">
+          ✖ Disconnect
+        </button>
+        <button id="btn-udev" class="btn btn--ghost" disabled title="Copy udev rule for this device to clipboard">
+          🐧 Copy udev Rule
+        </button>
+      </div>
+    </section>
+
+    <!-- Device Info -->
+    <section class="card" id="device-info-card">
+      <h2>Device Information</h2>
+      <div id="device-info" class="device-info">
+        <p class="placeholder">No device selected.</p>
+      </div>
+    </section>
+
+    <!-- Data Transfer -->
+    <section class="card" id="transfer-card">
+      <h2>Data Transfer</h2>
+
+      <div class="transfer-section">
+        <h3>Send Data</h3>
+        <div class="input-row">
+          <label for="endpoint-out">OUT Endpoint #</label>
+          <input id="endpoint-out" type="number" min="1" max="15" value="1" class="input-small" />
+        </div>
+        <div class="input-row">
+          <label for="send-data">Hex bytes (e.g. <code>01 02 03</code>)</label>
+          <input id="send-data" type="text" placeholder="01 02 03 ..." class="input-wide" />
+        </div>
+        <button id="btn-send" class="btn btn--primary" disabled>📤 Send</button>
+      </div>
+
+      <div class="transfer-section">
+        <h3>Receive Data</h3>
+        <div class="input-row">
+          <label for="endpoint-in">IN Endpoint #</label>
+          <input id="endpoint-in" type="number" min="1" max="15" value="1" class="input-small" />
+        </div>
+        <div class="input-row">
+          <label for="recv-length">Bytes to read</label>
+          <input id="recv-length" type="number" min="1" max="65535" value="64" class="input-small" />
+        </div>
+        <button id="btn-receive" class="btn btn--primary" disabled>📥 Receive</button>
+      </div>
+    </section>
+
+    <!-- Log -->
+    <section class="card">
+      <div class="log-header">
+        <h2>Log</h2>
+        <button id="btn-clear-log" class="btn btn--ghost btn--sm">🗑 Clear</button>
+      </div>
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <script src="webusb.js"></script>
+</body>
+</html>
