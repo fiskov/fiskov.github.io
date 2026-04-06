@@ -25,6 +25,8 @@ const ui = {
   btnUdev:           $('btn-udev'),
   deviceInfo:        $('device-info'),
   btnSend:           $('btn-send'),
+  btnSend01:         $('btn-send-01'),
+  btnSend00:         $('btn-send-00'),
   btnReceive:        $('btn-receive'),
   endpointOut:       $('endpoint-out'),
   endpointIn:        $('endpoint-in'),
@@ -91,6 +93,8 @@ function updateButtons() {
   ui.btnConnect.disabled    = !hasDevice || isConnected;
   ui.btnDisconnect.disabled = !isConnected;
   ui.btnSend.disabled       = !isConnected;
+  ui.btnSend01.disabled     = !isConnected;
+  ui.btnSend00.disabled     = !isConnected;
   ui.btnReceive.disabled    = !isConnected;
   ui.btnUdev.disabled       = !hasDevice;
 }
@@ -375,6 +379,28 @@ async function sendData() {
   }
 }
 
+// ── WebUSB: Send fixed single byte ────────────────────────────────────────
+/**
+ * Send a single fixed byte to the currently selected OUT endpoint.
+ * @param {number} byte  Value 0–255
+ */
+async function sendFixedByte(byte) {
+  if (!state.connected) return;
+  const epNum = parseInt(ui.endpointOut.value, 10);
+  const bytes = new Uint8Array([byte]);
+  try {
+    log(`Sending 1 byte to endpoint ${epNum}: ${formatHex(bytes)}`);
+    const result = await state.device.transferOut(epNum, bytes);
+    if (result.status === 'ok') {
+      log(`Sent ${result.bytesWritten} byte(s) successfully.`, 'ok');
+    } else {
+      log(`Transfer status: ${result.status}`, 'warn');
+    }
+  } catch (err) {
+    log(`Send error: ${err.message}`, 'error');
+  }
+}
+
 // ── WebUSB: Receive data ───────────────────────────────────────────────────
 async function receiveData() {
   if (!state.connected) return;
@@ -468,6 +494,8 @@ function init() {
   ui.btnDisconnect.addEventListener('click', disconnectDevice);
   ui.btnUdev.addEventListener('click', copyUdevRule);
   ui.btnSend.addEventListener('click', sendData);
+  ui.btnSend01.addEventListener('click', () => sendFixedByte(0x01));
+  ui.btnSend00.addEventListener('click', () => sendFixedByte(0x00));
   ui.btnReceive.addEventListener('click', receiveData);
   ui.btnClearLog.addEventListener('click', () => { ui.log.innerHTML = ''; });
 

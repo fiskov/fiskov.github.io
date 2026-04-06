@@ -121,9 +121,10 @@ body {
 .btn:active:not(:disabled) { transform: scale(.97); }
 .btn:disabled { opacity: .38; cursor: not-allowed; }
 
-.btn--primary { background: var(--accent);   color: #fff; }
-.btn--success { background: var(--success);  color: #0f1117; }
-.btn--danger  { background: var(--danger);   color: #fff; }
+.btn--primary   { background: var(--accent);   color: #fff; }
+.btn--secondary { background: var(--border);   color: var(--text); }
+.btn--success   { background: var(--success);  color: #0f1117; }
+.btn--danger    { background: var(--danger);   color: #fff; }
 .btn--ghost   {
   background: transparent;
   color: var(--text-muted);
@@ -133,6 +134,7 @@ body {
 .btn--sm { padding: .3rem .75rem; font-size: .8rem; }
 
 .btn--primary:hover:not(:disabled),
+.btn--secondary:hover:not(:disabled),
 .btn--success:hover:not(:disabled),
 .btn--danger:hover:not(:disabled)  { opacity: .85; }
 
