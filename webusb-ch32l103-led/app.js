@@ -28,8 +28,32 @@ const REQUEST_SET_LED = 0x02;
 const REQUEST_GET_LED = 0x03;
 const REQUEST_GET_VERSION = 0x05;
 const REQUEST_SET_DEBOUNCE_MS = 0x06;
+const REQUEST_GET_FILE_SIZE = 0x09;
+const REQUEST_START_FILE_XFER = 0x0A;
 
 const BUTTON_ENDPOINT = 1; // EP1 IN, interrupt
+const FILE_ENDPOINT = 2;   // EP2 IN, bulk
+
+// Synthetic BMP layout constants - must match firmware/User/filexfer.c exactly.
+const IMG_WIDTH = 1024;
+const IMG_HEIGHT = 1024;
+const BMP_HEADER_LEN = 54;
+const ROW_SIZE = IMG_WIDTH * 3;
+
+/** Reproduces the firmware's deterministic byte pattern (filexfer.c) so
+ *  every downloaded byte can be verified without a stored reference file. */
+function expectedFileByte(offset) {
+  if (offset < BMP_HEADER_LEN) return null;
+  const pixelOffset = offset - BMP_HEADER_LEN;
+  const rowFromBottom = Math.floor(pixelOffset / ROW_SIZE);
+  const within = pixelOffset % ROW_SIZE;
+  const col = Math.floor(within / 3);
+  const channel = within % 3;
+  const actualRow = (IMG_HEIGHT - 1) - rowFromBottom;
+  if (channel === 0) return Math.floor((col * 255) / (IMG_WIDTH - 1));
+  if (channel === 1) return Math.floor((actualRow * 255) / (IMG_HEIGHT - 1));
+  return (col + actualRow) & 0xFF;
+}
 
 const state = {
   /** @type {USBDevice|null} */
@@ -56,6 +80,9 @@ const ui = {
   log:             $('log'),
   btnClearLog:     $('btn-clear-log'),
   unsupportedBanner: $('unsupported-banner'),
+  btnDownload:     $('btn-download'),
+  downloadProgress: $('download-progress'),
+  previewCanvas:   $('preview-canvas'),
 };
 
 function log(message, level = 'info') {
@@ -95,6 +122,7 @@ function updateButtons() {
   ui.btnLedFull.disabled = !connected;
   ui.debounceMs.disabled = !connected;
   ui.btnSetDebounce.disabled = !connected;
+  ui.btnDownload.disabled = !connected;
 }
 
 function renderDeviceInfo(device) {
@@ -270,6 +298,120 @@ async function setDebounceMs(ms) {
   }
 }
 
+/** Downloads the synthetic ~3MB BMP test file over EP2 bulk, verifying
+ *  every pixel byte and rendering a scaled preview into the canvas. */
+async function downloadAndVerifyFile() {
+  if (!state.device) return;
+  ui.btnDownload.disabled = true;
+  ui.downloadProgress.textContent = 'Requesting file size...';
+
+  try {
+    const sizeResult = await state.device.controlTransferIn({
+      requestType: 'vendor', recipient: 'device',
+      request: REQUEST_GET_FILE_SIZE, value: 0, index: 0
+    }, 4);
+    if (sizeResult.status !== 'ok' || !sizeResult.data || sizeResult.data.byteLength < 4) {
+      throw new Error(`GET_FILE_SIZE failed: status=${sizeResult.status}`);
+    }
+    const fileSize = sizeResult.data.getUint32(0, true);
+    log(`File size: ${fileSize} bytes (${(fileSize / 1048576).toFixed(2)} MB)`, 'info');
+
+    const startResult = await state.device.controlTransferOut({
+      requestType: 'vendor', recipient: 'device',
+      request: REQUEST_START_FILE_XFER, value: 0, index: 0
+    });
+    if (startResult.status !== 'ok') {
+      throw new Error(`START_FILE_XFER failed: status=${startResult.status}`);
+    }
+
+    const fileBuf = new Uint8Array(fileSize);
+    let received = 0;
+    const t0 = performance.now();
+    let lastUpdate = 0;
+
+    while (received < fileSize) {
+      const result = await state.device.transferIn(FILE_ENDPOINT, 64);
+      if (result.status === 'ok' && result.data && result.data.byteLength > 0) {
+        fileBuf.set(new Uint8Array(result.data.buffer, result.data.byteOffset, result.data.byteLength), received);
+        received += result.data.byteLength;
+        const now = performance.now();
+        if (now - lastUpdate > 100) {
+          lastUpdate = now;
+          const pct = ((received / fileSize) * 100).toFixed(0);
+          const kbps = (received / 1024) / ((now - t0) / 1000);
+          ui.downloadProgress.textContent = `Downloading... ${pct}% (${kbps.toFixed(0)} KB/s)`;
+        }
+      } else if (result.status === 'stall') {
+        try { await state.device.clearHalt('in', FILE_ENDPOINT); } catch (_) {}
+      } else {
+        throw new Error(`transferIn failed: status=${result.status}`);
+      }
+    }
+
+    const elapsedSec = (performance.now() - t0) / 1000;
+    const kbps = (fileSize / 1024) / elapsedSec;
+    const mbitps = (kbps * 8) / 1024;
+    log(`Downloaded ${fileSize} bytes in ${elapsedSec.toFixed(2)}s (${kbps.toFixed(1)} KB/s, ${mbitps.toFixed(2)} Mbit/s)`, 'ok');
+
+    const magicOk = fileBuf[0] === 0x42 && fileBuf[1] === 0x4D;
+    log(magicOk ? 'BMP header signature OK.' : 'BMP header signature MISMATCH!', magicOk ? 'ok' : 'error');
+
+    let mismatches = 0;
+    for (let i = BMP_HEADER_LEN; i < fileSize; i++) {
+      const expected = expectedFileByte(i);
+      if (fileBuf[i] !== expected) {
+        mismatches++;
+        if (mismatches <= 5) {
+          log(`Byte mismatch at offset ${i}: got 0x${fileBuf[i].toString(16)}, expected 0x${expected.toString(16)}`, 'error');
+        }
+      }
+    }
+
+    if (mismatches === 0) {
+      log(`VERIFICATION OK: all ${fileSize - BMP_HEADER_LEN} pixel bytes match the expected pattern.`, 'ok');
+      ui.downloadProgress.textContent = `Done: ${(fileSize / 1048576).toFixed(2)} MB in ${elapsedSec.toFixed(2)}s (${kbps.toFixed(0)} KB/s) - verification OK`;
+    } else {
+      log(`VERIFICATION FAILED: ${mismatches} byte mismatches.`, 'error');
+      ui.downloadProgress.textContent = `Done, but ${mismatches} byte mismatches found`;
+    }
+
+    renderPreview(fileBuf);
+  } catch (err) {
+    log(`Download error: ${err.message}`, 'error');
+    ui.downloadProgress.textContent = `Error: ${err.message}`;
+  } finally {
+    ui.btnDownload.disabled = false;
+  }
+}
+
+/** Renders the downloaded BMP (bottom-to-top rows, BGR pixels), downscaled
+ *  to the canvas size, as a quick visual sanity check. */
+function renderPreview(fileBuf) {
+  const canvas = ui.previewCanvas;
+  const ctx = canvas.getContext('2d');
+  const scale = IMG_WIDTH / canvas.width;
+  const imageData = ctx.createImageData(canvas.width, canvas.height);
+
+  for (let y = 0; y < canvas.height; y++) {
+    const srcRow = Math.floor(y * scale);
+    const bmpRowFromBottom = (IMG_HEIGHT - 1) - srcRow;
+    for (let x = 0; x < canvas.width; x++) {
+      const srcCol = Math.floor(x * scale);
+      const srcOffset = BMP_HEADER_LEN + bmpRowFromBottom * ROW_SIZE + srcCol * 3;
+      const b = fileBuf[srcOffset];
+      const g = fileBuf[srcOffset + 1];
+      const r = fileBuf[srcOffset + 2];
+      const dstIdx = (y * canvas.width + x) * 4;
+      imageData.data[dstIdx] = r;
+      imageData.data[dstIdx + 1] = g;
+      imageData.data[dstIdx + 2] = b;
+      imageData.data[dstIdx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  canvas.style.display = 'block';
+}
+
 async function copyUdevRule() {
   const vid = USB_VENDOR_ID.toString(16).padStart(4, '0');
   const pid = USB_PRODUCT_ID.toString(16).padStart(4, '0');
@@ -301,6 +443,7 @@ function init() {
   ui.btnDisconnect.addEventListener('click', disconnect);
   ui.btnUdev.addEventListener('click', copyUdevRule);
   ui.btnClearLog.addEventListener('click', () => { ui.log.innerHTML = ''; });
+  ui.btnDownload.addEventListener('click', downloadAndVerifyFile);
 
   ui.brightness.addEventListener('input', () => {
     const value = parseInt(ui.brightness.value, 10);
