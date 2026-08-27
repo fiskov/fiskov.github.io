@@ -329,8 +329,16 @@ async function downloadAndVerifyFile() {
     const t0 = performance.now();
     let lastUpdate = 0;
 
+    // Request a large chunk per transferIn() (not one 64-byte USB packet
+    // at a time): each JS-visible transferIn() call has async/IPC
+    // overhead far larger than a single ~50us USB transaction, so
+    // requesting 64 bytes at a time caps throughput at ~200 KB/s. A 16KB
+    // chunk size lets the browser/OS aggregate many bulk transactions per
+    // call and approach the device's real bulk-transfer speed.
+    const CHUNK_SIZE = 16384;
+
     while (received < fileSize) {
-      const result = await state.device.transferIn(FILE_ENDPOINT, 64);
+      const result = await state.device.transferIn(FILE_ENDPOINT, CHUNK_SIZE);
       if (result.status === 'ok' && result.data && result.data.byteLength > 0) {
         fileBuf.set(new Uint8Array(result.data.buffer, result.data.byteOffset, result.data.byteLength), received);
         received += result.data.byteLength;
