@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CH32L103 WebUSB LED & Button Demo</title>
-  <link rel="stylesheet" href="../webusb/style.css" />
+  <title>WebUSB LED & Button Demo (CH32L103 / CH592F)</title>
+  <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="data:,">
 </head>
 <body>
   <div class="app">
     <header class="header">
-      <h1>🔌 CH32L103 · LED &amp; Button</h1>
-      <p class="subtitle">WinUSB/WebUSB demo firmware for the WCH CH32L103 - no drivers needed</p>
+      <h1>🔌 LED &amp; Button</h1>
+      <p class="subtitle">WinUSB/WebUSB demo firmware for the WCH CH32L103 / CH592F - no drivers needed</p>
     </header>
 
     <div id="unsupported-banner" class="banner banner--error hidden">
@@ -46,7 +46,7 @@
     </section>
 
     <section class="card">
-      <h2>LED Brightness (PB8 · TIM4_CH3 PWM)</h2>
+      <h2>LED Brightness</h2>
       <div class="input-row">
         <label for="brightness">Brightness</label>
         <input id="brightness" type="range" min="0" max="255" value="0" style="flex:1; min-width:180px;" disabled />
@@ -56,10 +56,13 @@
         <button id="btn-led-off" class="btn btn--secondary" disabled>Off</button>
         <button id="btn-led-full" class="btn btn--secondary" disabled>Full brightness</button>
       </div>
+      <p style="color:var(--text-muted); font-size:.85rem; margin-top:.6rem;">
+        PB8 (TIM4_CH3 hardware PWM) on CH32L103, PA4 (TMR1 software PWM) on CH592F.
+      </p>
     </section>
 
     <section class="card">
-      <h2>Button (PA1, debounced in firmware)</h2>
+      <h2>Button (debounced in firmware)</h2>
       <div class="input-row">
         <label for="debounce-ms">Debounce interval</label>
         <input id="debounce-ms" type="number" min="1" max="1000" value="5" class="input-small" disabled />
@@ -67,8 +70,8 @@
         <button id="btn-set-debounce" class="btn btn--primary" disabled>Set</button>
       </div>
       <p style="color:var(--text-muted); font-size:.85rem;">
-        Every press of the PA1 button is pushed to this page automatically over an interrupt IN endpoint -
-        no polling needed. Watch the log below.
+        PA1 on CH32L103, PB22 (the BOOT pin) on CH592F. Every press is pushed to this page
+        automatically over an interrupt IN endpoint - no polling needed. Watch the log below.
       </p>
     </section>
 

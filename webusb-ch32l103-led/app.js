@@ -1,8 +1,11 @@
 /**
- * CH32L103 WebUSB LED & Button demo client.
+ * CH32L103 / CH592F WebUSB LED & Button demo client.
  *
  * Talks to the firmware at:
- *   https://github.com/fiskov/webUSB (firmware/ + webusb-demo/)
+ *   https://github.com/fiskov/ch32l103_ch592f_web_usb (ch32l103/ + ch592f/)
+ *
+ * Both boards expose the identical protocol below, so this single page
+ * works with either one.
  *
  * Protocol summary:
  *   - VID/PID: 0x1209 / 0x0001
@@ -164,7 +167,7 @@ async function connect() {
     await device.claimInterface(0);
 
     state.connected = true;
-    log(`Connected to ${device.productName || 'CH32L103'}.`, 'ok');
+    log(`Connected to ${device.productName || 'device'}.`, 'ok');
 
     const version = await getFirmwareVersion();
     if (version) {
@@ -424,7 +427,7 @@ async function copyUdevRule() {
   const vid = USB_VENDOR_ID.toString(16).padStart(4, '0');
   const pid = USB_PRODUCT_ID.toString(16).padStart(4, '0');
   const rule = `SUBSYSTEM=="usb", ATTRS{idVendor}=="${vid}", ATTRS{idProduct}=="${pid}", MODE="0664", GROUP="plugdev"`;
-  log(`udev rule for CH32L103 (${vid}:${pid}):`, 'info');
+  log(`udev rule for this device (${vid}:${pid}):`, 'info');
   log(`  ${rule}`, 'data');
   log(`Save to: /etc/udev/rules.d/99-webusb-${vid}${pid}.rules`, 'info');
   log('Then run: sudo udevadm control --reload-rules && sudo udevadm trigger', 'info');
