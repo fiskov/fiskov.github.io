@@ -45,7 +45,10 @@ const ROW_SIZE = IMG_WIDTH * 3;
 
 /** Reproduces the firmware's deterministic byte pattern (filexfer.c) so
  *  every downloaded byte can be verified without a stored reference file. */
-function expectedFileByte(offset) {
+/* Two known image patterns, auto-detected from the first pixel:
+ * - gradient (CH32L103 / CH592F firmware)
+ * - 8x8 black/white checkerboard (CH585M benchmark firmware) */
+function expectedGradientByte(offset) {
   if (offset < BMP_HEADER_LEN) return null;
   const pixelOffset = offset - BMP_HEADER_LEN;
   const rowFromBottom = Math.floor(pixelOffset / ROW_SIZE);
@@ -57,6 +60,18 @@ function expectedFileByte(offset) {
   if (channel === 1) return Math.floor((actualRow * 255) / (IMG_HEIGHT - 1));
   return (col + actualRow) & 0xFF;
 }
+
+function expectedCheckerByte(offset) {
+  if (offset < BMP_HEADER_LEN) return null;
+  const pixelOffset = offset - BMP_HEADER_LEN;
+  const rowFromBottom = Math.floor(pixelOffset / ROW_SIZE);
+  const within = pixelOffset % ROW_SIZE;
+  const col = Math.floor(within / 3);
+  const actualRow = (IMG_HEIGHT - 1) - rowFromBottom;
+  return ((Math.floor(actualRow / 8) + Math.floor(col / 8)) % 2) ? 0xFF : 0x00;
+}
+
+let expectedFileByte = expectedGradientByte;
 
 const state = {
   /** @type {USBDevice|null} */
@@ -363,6 +378,15 @@ async function downloadAndVerifyFile() {
     const kbps = (fileSize / 1024) / elapsedSec;
     const mbitps = (kbps * 8) / 1024;
     log(`Downloaded ${fileSize} bytes in ${elapsedSec.toFixed(2)}s (${kbps.toFixed(1)} KB/s, ${mbitps.toFixed(2)} Mbit/s)`, 'ok');
+
+    /* detect the image pattern from the first pixel (all channels equal
+     * and 0x00/0xFF -> checkerboard, otherwise gradient) */
+    const first = fileBuf[BMP_HEADER_LEN];
+    const checker = first === fileBuf[BMP_HEADER_LEN + 1] &&
+                    first === fileBuf[BMP_HEADER_LEN + 2] &&
+                    (first === 0x00 || first === 0xFF);
+    expectedFileByte = checker ? expectedCheckerByte : expectedGradientByte;
+    log(checker ? 'Image pattern: 8x8 checkerboard.' : 'Image pattern: gradient.', 'info');
 
     const magicOk = fileBuf[0] === 0x42 && fileBuf[1] === 0x4D;
     log(magicOk ? 'BMP header signature OK.' : 'BMP header signature MISMATCH!', magicOk ? 'ok' : 'error');
