@@ -331,6 +331,7 @@ async function downloadAndVerifyFile() {
     let received = 0;
     const t0 = performance.now();
     let lastUpdate = 0;
+    let lastMemo = 0;
 
     // Request a large chunk per transferIn() (not one 64-byte USB packet
     // at a time): each JS-visible transferIn() call has async/IPC
@@ -351,6 +352,13 @@ async function downloadAndVerifyFile() {
           const pct = ((received / fileSize) * 100).toFixed(0);
           const kbps = (received / 1024) / ((now - t0) / 1000);
           ui.downloadProgress.textContent = `Downloading... ${pct}% (${kbps.toFixed(0)} KB/s)`;
+        }
+        // Memo into the log roughly once a second: running average speed.
+        if (now - lastMemo > 1000) {
+          lastMemo = now;
+          const pct = ((received / fileSize) * 100).toFixed(0);
+          const kbps = (received / 1024) / ((now - t0) / 1000);
+          log(`⏱ avg ${kbps.toFixed(0)} KB/s (${pct}%, ${(received / 1048576).toFixed(1)} MB)`, 'info');
         }
       } else if (result.status === 'stall') {
         try { await state.device.clearHalt('in', FILE_ENDPOINT); } catch (_) {}
