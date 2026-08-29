@@ -14,7 +14,7 @@ Merge up to 4 Intel HEX / BIN files into a single binary or HEX output.
 ### 📁 [Folder Word Counter](https://fiskov.github.io/words_count/)
 Browse a folder and count words across e-book files (fb2, epub, txt, docx…).
 
-### 🔌 [WebUSB LED & Button Demo](https://fiskov.github.io/webusb-ch32l103-led/)
+### 🔌 [WebUSB LED & Button Demo](https://fiskov.github.io/webusb-led/)
 Control LED brightness and watch button-press events live from the browser
 via WebUSB, no drivers needed. Works with the CH32L103 and CH592F WinUSB/
 WebUSB demo firmware (https://github.com/fiskov/ch32l103_ch592f_web_usb).

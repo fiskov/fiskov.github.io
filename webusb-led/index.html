@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebUSB LED & Button Demo (CH32L103 / CH592F)</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>🔌 LED &amp; Button</h1>
+      <p class="subtitle">WinUSB/WebUSB demo firmware for the WCH CH32L103 / CH592F - no drivers needed</p>
+    </header>
+
+    <div id="unsupported-banner" class="banner banner--error hidden">
+      ⚠️ WebUSB is not supported in this browser. Please use Chrome or Edge (desktop).
+    </div>
+
+    <div class="status-bar">
+      <span class="status-indicator" id="status-indicator"></span>
+      <span id="status-text">No device connected</span>
+    </div>
+
+    <section class="card">
+      <h2>Device Control</h2>
+      <div class="button-row">
+        <button id="btn-connect" class="btn btn--success" title="Request device access, open, and claim the interface">
+          🔌 Connect device
+        </button>
+        <button id="btn-disconnect" class="btn btn--danger" disabled title="Close device connection">
+          ✖ Disconnect
+        </button>
+        <button id="btn-udev" class="btn btn--ghost" title="Copy a udev rule for this device's VID/PID to clipboard (Linux)">
+          🐧 Copy udev Rule
+        </button>
+      </div>
+    </section>
+
+    <section class="card" id="device-info-card">
+      <h2>Device Information</h2>
+      <div id="device-info" class="device-info">
+        <p class="placeholder">No device selected.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>LED Brightness</h2>
+      <div class="input-row">
+        <label for="brightness">Brightness</label>
+        <input id="brightness" type="range" min="0" max="255" value="0" style="flex:1; min-width:180px;" disabled />
+        <span id="brightness-value" style="font-family:monospace; min-width:32px; text-align:right;">0</span>
+      </div>
+      <div class="button-row">
+        <button id="btn-led-off" class="btn btn--secondary" disabled>Off</button>
+        <button id="btn-led-full" class="btn btn--secondary" disabled>Full brightness</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:.85rem; margin-top:.6rem;">
+        PB8 (TIM4_CH3 hardware PWM) on CH32L103, PA4 (TMR1 software PWM) on CH592F.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Button (debounced in firmware)</h2>
+      <div class="input-row">
+        <label for="debounce-ms">Debounce interval</label>
+        <input id="debounce-ms" type="number" min="1" max="1000" value="5" class="input-small" disabled />
+        <span>ms</span>
+        <button id="btn-set-debounce" class="btn btn--primary" disabled>Set</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:.85rem;">
+        PA1 on CH32L103, PB22 (the BOOT pin) on CH592F. Every press is pushed to this page
+        automatically over an interrupt IN endpoint - no polling needed. Watch the log below.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Throughput / Correctness Test</h2>
+      <p style="color:var(--text-muted); font-size:.85rem; margin-bottom:.75rem;">
+        Downloads a synthetic ~3&nbsp;MB BMP image generated on the fly by the
+        firmware over a bulk endpoint (no data is stored on the device), verifies
+        every single byte against a JS-side reproduction of the same deterministic
+        pattern, and renders a live preview.
+      </p>
+      <div class="button-row">
+        <button id="btn-download" class="btn btn--primary" disabled>📥 Download &amp; verify (~3 MB)</button>
+      </div>
+      <div id="download-progress" style="font-size:.85rem; color:var(--text-muted); margin-top:.6rem;"></div>
+      <canvas id="preview-canvas" width="128" height="128" style="display:none; margin-top:.75rem; border-radius:8px; border:1px solid var(--border);"></canvas>
+    </section>
+
+    <section class="card">
+      <div class="log-header">
+        <h2>Log</h2>
+        <button id="btn-clear-log" class="btn btn--ghost btn--sm">🗑 Clear</button>
+      </div>
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
