@@ -39,7 +39,7 @@ const FILE_ENDPOINT = 2;   // EP2 IN, bulk
 
 // Synthetic BMP layout constants - must match firmware/User/filexfer.c exactly.
 const IMG_WIDTH = 1024;
-const IMG_HEIGHT = 1024;
+const IMG_HEIGHT = 2048;
 const BMP_HEADER_LEN = 54;
 const ROW_SIZE = IMG_WIDTH * 3;
 
