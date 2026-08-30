@@ -388,6 +388,12 @@ async function downloadAndVerifyFile() {
     expectedFileByte = checker ? expectedCheckerByte : expectedGradientByte;
     log(checker ? 'Image pattern: 8x8 checkerboard.' : 'Image pattern: gradient.', 'info');
 
+    /* Parse actual dimensions from the BMP header (self-describing) */
+    const bmpWidth = fileBuf[18] | (fileBuf[19] << 8) | (fileBuf[20] << 16) | (fileBuf[21] << 24);
+    const bmpHeight = fileBuf[22] | (fileBuf[23] << 8) | (fileBuf[24] << 16) | (fileBuf[25] << 24);
+    IMG_WIDTH = bmpWidth;
+    IMG_HEIGHT = bmpHeight;
+
     const magicOk = fileBuf[0] === 0x42 && fileBuf[1] === 0x4D;
     log(magicOk ? 'BMP header signature OK.' : 'BMP header signature MISMATCH!', magicOk ? 'ok' : 'error');
 
