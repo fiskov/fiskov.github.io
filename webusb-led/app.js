@@ -527,3 +527,14 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* Show the deployed commit hash in the header */
+(function() {
+  fetch('https://api.github.com/repos/fiskov/fiskov.github.io/commits/master')
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('commit-hash');
+      if (el && d.sha) el.textContent = '@' + d.sha.substring(0, 7);
+    })
+    .catch(() => {}); /* silently fail if offline */
+})();
