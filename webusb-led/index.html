@@ -76,13 +76,13 @@
     <section class="card">
       <h2>Throughput / Correctness Test</h2>
       <p style="color:var(--text-muted); font-size:.85rem; margin-bottom:.75rem;">
-        Downloads a synthetic ~3&nbsp;MB BMP image generated on the fly by the
+        Downloads a synthetic BMP image generated on the fly by the
         firmware over a bulk endpoint (no data is stored on the device), verifies
         every single byte against a JS-side reproduction of the same deterministic
         pattern, and renders a live preview.
       </p>
       <div class="button-row">
-        <button id="btn-download" class="btn btn--primary" disabled>📥 Download &amp; verify (~3 MB)</button>
+        <button id="btn-download" class="btn btn--primary" disabled>📥 Download &amp; verify</button>
       </div>
       <div id="download-progress" style="font-size:.85rem; color:var(--text-muted); margin-top:.6rem;"></div>
       <canvas id="preview-canvas" width="128" height="128" style="display:none; margin-top:.75rem; border-radius:8px; border:1px solid var(--border);"></canvas>
