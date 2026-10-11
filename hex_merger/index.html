@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>🔧 HEX File Merger <span class="version">v1.0</span></h1>
-            <p class="subtitle">Merge up to 4 Intel HEX / BIN files into a single binary or HEX output</p>
+            <p class="subtitle">Merge up to 4 Intel HEX / BIN files into a single binary or HEX output — Microchip XC16 (PIC24) files auto-detected</p>
         </header>
 
         <!-- Total Size Selector -->
@@ -47,6 +47,7 @@
                 <div class="minimap-labels">
                     <span class="minimap-addr" id="addrStart">0x00000000</span>
                     <span class="minimap-addr" id="addrEnd">0x00080000</span>
+                    <div class="minimap-region-labels" id="regionLabels" style="display:none"></div>
                 </div>
                 <canvas id="minimap" width="800" height="64"></canvas>
                 <div class="minimap-legend" id="minimapLegend">
@@ -104,6 +105,9 @@
                 </label>
                 <label class="checkbox-label" title="Strip trailing filler bytes then pad to 8-byte alignment. Applies to both .bin and .hex output.">
                     <input type="checkbox" id="trimBin"> Trim output
+                </label>
+                <label class="checkbox-label" title="Microchip PIC24: pack 24-bit words from 4-byte HEX slots to 3 data bytes for .bin output and the byte view. .hex output stays in standard XC16 4-byte layout.">
+                    <input type="checkbox" id="unpackWords"> Unpack 24-bit words
                 </label>
                 <label class="action-opt-label" for="fillerByteInput" title="Byte value used to fill empty regions (default 0xFF)">Filler byte:</label>
                 <input type="text" id="fillerByteInput" class="action-opt-input" value="0xFF" maxlength="4" title="Hex value, e.g. 0xFF or FF">

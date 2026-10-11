@@ -8,17 +8,22 @@ const SLOT_COLORS_RGB = [
 ];
 const EMPTY_COLOR_RGB = [26, 26, 46];
 const OVERLAP_COLOR_RGB = [255, 51, 51];
+const GAP_COLOR_RGB = [12, 12, 24];
 const NUM_SLOTS = 4;
 
 // ===== State =====
-/** @type {Array<{name:string, offset:number, size:number, data:Uint8Array, isBin:boolean}|null>} */
+/** @type {Array<{name:string, offset:number, size:number, segments:Array<{addr:number, data:Uint8Array}>, isBin:boolean, isMicrochip:boolean}|null>} */
 const slots = new Array(NUM_SLOTS).fill(null);
 let totalSize = 512 * 1024; // default 512 KB
 let renderedSlotCount = 0;  // how many slot cards exist in the DOM
 
 // ===== Constants =====
-const HEX_ADDR_MASK  = 0xFFFFF;   // 1 MB mask — strip upper base (e.g. 0x08000000)
-const STM32_BASE     = 0x08000000; // STM32 flash base address
+const STM32_BASE = 0x08000000; // STM32 flash base address
+
+const MCHP_EEPROM_BASE = 0x00FFFC00;
+const MCHP_EEPROM_SIZE = 0x400;
+const MCHP_CONFIG_BASE = 0x01F00000;
+const MCHP_CONFIG_SIZE = 0x200;
 
 // ===== DOM References =====
 const slotsGrid      = document.getElementById('slots-grid');
@@ -28,10 +33,14 @@ const minimapTooltip = document.getElementById('minimapTooltip');
 const minimapHint    = document.getElementById('minimapHint');
 const addrStart      = document.getElementById('addrStart');
 const addrEnd        = document.getElementById('addrEnd');
+const regionLabels   = document.getElementById('regionLabels');
 const downloadBinBtn = document.getElementById('downloadBin');
 const downloadHexBtn = document.getElementById('downloadHex');
 const actionInfo     = document.getElementById('actionInfo');
 const sizeInfo       = document.getElementById('sizeInfo');
+
+let minimapLayout = []; // [{x0, x1, region}] filled by renderMinimapCore
+let enlargedLayout = null; // filled by renderEnlargedMap
 
 // ===== Utility =====
 
@@ -47,6 +56,39 @@ function parseHexInput(s) {
     const trimmed = s.trim().replace(/^0x/i, '');
     if (!/^[0-9a-fA-F]+$/.test(trimmed)) return NaN;
     return parseInt(trimmed, 16);
+}
+
+function isMicrochipMode() {
+    return slots.some(s => s && s.isMicrochip);
+}
+
+function getRegions() {
+    if (!isMicrochipMode()) {
+        return [{ id: 'flash', name: 'FLASH', base: 0, size: totalSize }];
+    }
+    const flashSize = Math.min(totalSize, MCHP_EEPROM_BASE);
+    return [
+        { id: 'flash',  name: 'FLASH',  base: 0,               size: flashSize },
+        { id: 'eeprom', name: 'EEPROM', base: MCHP_EEPROM_BASE, size: MCHP_EEPROM_SIZE },
+        { id: 'config', name: 'CONFIG', base: MCHP_CONFIG_BASE, size: MCHP_CONFIG_SIZE }
+    ];
+}
+
+function regionHasData(region) {
+    return slots.some(s => s && s.segments.some(seg => {
+        return seg.addr < region.base + region.size && seg.addr + seg.data.length > region.base;
+    }));
+}
+
+function getVisibleRegions() {
+    const regions = getRegions();
+    return regions.filter(r => r.id === 'flash' || regionHasData(r));
+}
+
+function segmentBytesInRegion(seg, region) {
+    const start = Math.max(seg.addr, region.base);
+    const end = Math.min(seg.addr + seg.data.length, region.base + region.size);
+    return Math.max(0, end - start);
 }
 
 // ===== Slot Card DOM Builder =====
@@ -90,6 +132,10 @@ function createSlotCard(idx) {
             <div class="info-row">
                 <span class="info-label">📦 Size</span>
                 <span class="info-value" id="size-${idx}">—</span>
+            </div>
+            <div class="info-row segments-row" id="segments-row-${idx}" style="display:none">
+                <span class="info-label">🗺 Map</span>
+                <span class="info-value segments-value" id="segments-${idx}">—</span>
             </div>
             <div class="info-row warning-row" id="warning-${idx}" style="display:none">
                 <span class="warning-text" id="warning-text-${idx}"></span>
@@ -161,6 +207,7 @@ function bindSlotEvents(idx) {
         }
         offsetInput.classList.remove('invalid');
         slot.offset = val;
+        if (slot.segments.length > 0) slot.segments[0].addr = val;
         updateSlotUI(idx);
         renderMinimap();
     });
@@ -224,8 +271,8 @@ function parseIntelHex(buffer) {
     const lines = text.split(/\r?\n/);
 
     let extendedAddress = 0;
-    let minAddr = Infinity;
-    let maxAddr = -Infinity;
+    let isMicrochip = false;
+    const entries = [];
 
     for (const line of lines) {
         if (!line.startsWith(':')) continue;
@@ -234,35 +281,15 @@ function parseIntelHex(buffer) {
         const recType   = parseInt(line.slice(7, 9), 16);
 
         if (recType === 0x00) {
-            // Apply 1M mask to strip upper base address (e.g. 0x08000000)
-            const absAddr = (extendedAddress + address) & HEX_ADDR_MASK;
-            if (absAddr < minAddr) minAddr = absAddr;
-            if (absAddr + byteCount > maxAddr) maxAddr = absAddr + byteCount;
-        } else if (recType === 0x02) {
-            extendedAddress = parseInt(line.slice(9, 13), 16) << 4;
-        } else if (recType === 0x04) {
-            extendedAddress = parseInt(line.slice(9, 13), 16) << 16;
-        } else if (recType === 0x01) {
-            break;
-        }
-    }
-
-    if (minAddr === Infinity) throw new Error('No data records found in HEX file');
-
-    const data = new Uint8Array(maxAddr - minAddr).fill(0xFF);
-
-    extendedAddress = 0;
-    for (const line of lines) {
-        if (!line.startsWith(':')) continue;
-        const byteCount = parseInt(line.slice(1, 3), 16);
-        const address   = parseInt(line.slice(3, 7), 16);
-        const recType   = parseInt(line.slice(7, 9), 16);
-
-        if (recType === 0x00) {
-            const absAddr = (extendedAddress + address) & HEX_ADDR_MASK;
+            let absAddr = extendedAddress + address;
+            if ((absAddr & 0xFF000000) === STM32_BASE) absAddr -= STM32_BASE;
+            const bytes = new Uint8Array(byteCount);
             for (let i = 0; i < byteCount; i++) {
-                data[absAddr - minAddr + i] = parseInt(line.slice(9 + i * 2, 11 + i * 2), 16);
+                bytes[i] = parseInt(line.slice(9 + i * 2, 11 + i * 2), 16);
             }
+            entries.push({ addr: absAddr, data: bytes });
+            if (absAddr >= MCHP_EEPROM_BASE && absAddr < 0x01000000) isMicrochip = true;
+            if (absAddr >= MCHP_CONFIG_BASE && absAddr < 0x02000000) isMicrochip = true;
         } else if (recType === 0x02) {
             extendedAddress = parseInt(line.slice(9, 13), 16) << 4;
         } else if (recType === 0x04) {
@@ -272,13 +299,34 @@ function parseIntelHex(buffer) {
         }
     }
 
-    return { offset: minAddr, data };
+    if (entries.length === 0) throw new Error('No data records found in HEX file');
+
+    entries.sort((a, b) => a.addr - b.addr);
+
+    const segments = [];
+    for (const e of entries) {
+        const last = segments[segments.length - 1];
+        if (last && e.addr <= last.addr + last.data.length) {
+            const writePos = e.addr - last.addr;
+            const need = writePos + e.data.length;
+            if (need > last.data.length) {
+                const grown = new Uint8Array(need);
+                grown.set(last.data);
+                last.data = grown;
+            }
+            last.data.set(e.data, writePos);
+        } else {
+            segments.push({ addr: e.addr, data: e.data });
+        }
+    }
+
+    return { segments, isMicrochip };
 }
 
 // ===== BIN Parser =====
 
 function parseBin(buffer, offset) {
-    return { offset, data: new Uint8Array(buffer) };
+    return { segments: [{ addr: offset, data: new Uint8Array(buffer) }], isMicrochip: false };
 }
 
 // ===== Merge =====
@@ -290,66 +338,78 @@ function getFillerByte() {
     return (isNaN(val) || val < 0 || val > 255) ? 0xFF : val;
 }
 
-function buildMergedBuffer() {
-    const filler   = getFillerByte();
-    const merged   = new Uint8Array(totalSize).fill(filler);
-    const ownerMap = new Int8Array(totalSize).fill(-1);
-    const overlapMap = new Uint8Array(totalSize).fill(0);
+function buildMergedRegions() {
+    const filler = getFillerByte();
+    return getRegions().map(r => {
+        const region = {
+            id: r.id,
+            name: r.name,
+            base: r.base,
+            size: r.size,
+            merged: new Uint8Array(r.size).fill(filler),
+            ownerMap: new Int8Array(r.size).fill(-1),
+            overlapMap: new Uint8Array(r.size).fill(0)
+        };
 
-    for (let s = 0; s < NUM_SLOTS; s++) {
-        const slot = slots[s];
-        if (!slot) continue;
-        const { offset, data } = slot;
-        for (let i = 0; i < data.length; i++) {
-            const addr = offset + i;
-            if (addr < 0 || addr >= totalSize) continue;
-            if (ownerMap[addr] !== -1) overlapMap[addr] = 1;
-            merged[addr] = data[i];
-            ownerMap[addr] = s;
+        for (let s = 0; s < NUM_SLOTS; s++) {
+            const slot = slots[s];
+            if (!slot) continue;
+            for (const seg of slot.segments) {
+                const start = Math.max(seg.addr, region.base);
+                const end = Math.min(seg.addr + seg.data.length, region.base + region.size);
+                for (let addr = start; addr < end; addr++) {
+                    const idx = addr - region.base;
+                    if (region.ownerMap[idx] !== -1) region.overlapMap[idx] = 1;
+                    region.merged[idx] = seg.data[addr - seg.addr];
+                    region.ownerMap[idx] = s;
+                }
+            }
         }
-    }
+        return region;
+    });
+}
 
-    return { merged, ownerMap, overlapMap };
+function regionOwnedBytes(region) {
+    for (let i = 0; i < region.ownerMap.length; i++) {
+        if (region.ownerMap[i] >= 0) return true;
+    }
+    return false;
 }
 
 // ===== Intel HEX Export =====
 
-/**
- * Convert a Uint8Array to Intel HEX format string.
- * @param {Uint8Array} data
- * @param {number} baseOffset  Added to every address (e.g. 0x08000000 for STM32)
- * @returns {string}
- */
-function toIntelHex(data, baseOffset = 0) {
+function toIntelHex(segments, baseOffset = 0) {
     const RECORD_SIZE = 16;
     const lines = [];
     let currentUpperAddr = -1;
 
-    for (let addr = 0; addr < data.length; addr += RECORD_SIZE) {
-        const absAddr   = addr + baseOffset;
-        const upperAddr = (absAddr >> 16) & 0xFFFF;
+    for (const seg of segments) {
+        for (let addr = 0; addr < seg.data.length; addr += RECORD_SIZE) {
+            const absAddr   = seg.addr + addr + baseOffset;
+            const upperAddr = (absAddr >> 16) & 0xFFFF;
 
-        if (upperAddr !== currentUpperAddr) {
-            currentUpperAddr = upperAddr;
-            const hi = (upperAddr >> 8) & 0xFF;
-            const lo = upperAddr & 0xFF;
-            const cs = (0x100 - ((2 + 0 + 0 + 4 + hi + lo) & 0xFF)) & 0xFF;
-            lines.push(`:02000004${hi.toString(16).padStart(2,'0').toUpperCase()}${lo.toString(16).padStart(2,'0').toUpperCase()}${cs.toString(16).padStart(2,'0').toUpperCase()}`);
-        }
+            if (upperAddr !== currentUpperAddr) {
+                currentUpperAddr = upperAddr;
+                const hi = (upperAddr >> 8) & 0xFF;
+                const lo = upperAddr & 0xFF;
+                const cs = (0x100 - ((2 + 0 + 0 + 4 + hi + lo) & 0xFF)) & 0xFF;
+                lines.push(`:02000004${hi.toString(16).padStart(2,'0').toUpperCase()}${lo.toString(16).padStart(2,'0').toUpperCase()}${cs.toString(16).padStart(2,'0').toUpperCase()}`);
+            }
 
-        const count  = Math.min(RECORD_SIZE, data.length - addr);
-        const addrLo = absAddr & 0xFFFF;
-        const aHi    = (addrLo >> 8) & 0xFF;
-        const aLo    = addrLo & 0xFF;
-        let sum = count + aHi + aLo;
-        let dataStr = '';
-        for (let i = 0; i < count; i++) {
-            const b = data[addr + i];
-            sum += b;
-            dataStr += b.toString(16).padStart(2, '0').toUpperCase();
+            const count  = Math.min(RECORD_SIZE, seg.data.length - addr);
+            const addrLo = absAddr & 0xFFFF;
+            const aHi    = (addrLo >> 8) & 0xFF;
+            const aLo    = addrLo & 0xFF;
+            let sum = count + aHi + aLo;
+            let dataStr = '';
+            for (let i = 0; i < count; i++) {
+                const b = seg.data[addr + i];
+                sum += b;
+                dataStr += b.toString(16).padStart(2, '0').toUpperCase();
+            }
+            const cs = (0x100 - (sum & 0xFF)) & 0xFF;
+            lines.push(`:${count.toString(16).padStart(2,'0').toUpperCase()}${aHi.toString(16).padStart(2,'0').toUpperCase()}${aLo.toString(16).padStart(2,'0').toUpperCase()}00${dataStr}${cs.toString(16).padStart(2,'0').toUpperCase()}`);
         }
-        const cs = (0x100 - (sum & 0xFF)) & 0xFF;
-        lines.push(`:${count.toString(16).padStart(2,'0').toUpperCase()}${aHi.toString(16).padStart(2,'0').toUpperCase()}${aLo.toString(16).padStart(2,'0').toUpperCase()}00${dataStr}${cs.toString(16).padStart(2,'0').toUpperCase()}`);
     }
 
     lines.push(':00000001FF');
@@ -364,39 +424,56 @@ function renderMinimapCore() {
     const imageData = minimapCtx.createImageData(W, H);
     const pixels = imageData.data;
 
-    const { ownerMap, overlapMap } = buildMergedBuffer();
-    const bytesPerPixel = totalSize / W;
+    const regionData = buildMergedRegions();
+    const visible = getVisibleRegions().map(r => regionData.find(x => x.id === r.id));
+    const panelCount = visible.length;
+    const gap = panelCount > 1 ? 4 : 0;
+    const panelW = Math.floor((W - gap * (panelCount - 1)) / panelCount);
 
+    minimapLayout = [];
     let hasAnyFile = slots.some(s => s !== null);
     let hasOverlap = false;
 
-    for (let px = 0; px < W; px++) {
-        const byteStart = Math.floor(px * bytesPerPixel);
-        const byteEnd   = Math.floor((px + 1) * bytesPerPixel);
+    for (let i = 0; i < W * H; i++) {
+        pixels[i * 4] = GAP_COLOR_RGB[0];
+        pixels[i * 4 + 1] = GAP_COLOR_RGB[1];
+        pixels[i * 4 + 2] = GAP_COLOR_RGB[2];
+        pixels[i * 4 + 3] = 255;
+    }
 
-        let r = EMPTY_COLOR_RGB[0], g = EMPTY_COLOR_RGB[1], b = EMPTY_COLOR_RGB[2];
-        let slotCounts = [0, 0, 0, 0];
-        let overlapCount = 0;
+    for (let ri = 0; ri < panelCount; ri++) {
+        const region = visible[ri];
+        const x0 = ri * (panelW + gap);
+        minimapLayout.push({ x0, x1: x0 + panelW, region });
 
-        for (let i = byteStart; i < byteEnd && i < totalSize; i++) {
-            if (overlapMap[i]) overlapCount++;
-            else if (ownerMap[i] >= 0) slotCounts[ownerMap[i]]++;
-        }
+        for (let px = 0; px < panelW; px++) {
+            const byteStart = Math.floor(px * (region.size / panelW));
+            const byteEnd   = Math.floor((px + 1) * (region.size / panelW));
 
-        if (overlapCount > 0) {
-            hasOverlap = true;
-            [r, g, b] = OVERLAP_COLOR_RGB;
-        } else {
-            let maxCount = 0, dominantSlot = -1;
-            for (let s = 0; s < NUM_SLOTS; s++) {
-                if (slotCounts[s] > maxCount) { maxCount = slotCounts[s]; dominantSlot = s; }
+            let r = EMPTY_COLOR_RGB[0], g = EMPTY_COLOR_RGB[1], b = EMPTY_COLOR_RGB[2];
+            let slotCounts = [0, 0, 0, 0];
+            let overlapCount = 0;
+
+            for (let i = byteStart; i < byteEnd && i < region.size; i++) {
+                if (region.overlapMap[i]) overlapCount++;
+                else if (region.ownerMap[i] >= 0) slotCounts[region.ownerMap[i]]++;
             }
-            if (dominantSlot >= 0) [r, g, b] = SLOT_COLORS_RGB[dominantSlot];
-        }
 
-        for (let py = 0; py < H; py++) {
-            const idx = (py * W + px) * 4;
-            pixels[idx] = r; pixels[idx+1] = g; pixels[idx+2] = b; pixels[idx+3] = 255;
+            if (overlapCount > 0) {
+                hasOverlap = true;
+                [r, g, b] = OVERLAP_COLOR_RGB;
+            } else {
+                let maxCount = 0, dominantSlot = -1;
+                for (let s = 0; s < NUM_SLOTS; s++) {
+                    if (slotCounts[s] > maxCount) { maxCount = slotCounts[s]; dominantSlot = s; }
+                }
+                if (dominantSlot >= 0) [r, g, b] = SLOT_COLORS_RGB[dominantSlot];
+            }
+
+            for (let py = 0; py < H; py++) {
+                const idx = (py * W + x0 + px) * 4;
+                pixels[idx] = r; pixels[idx+1] = g; pixels[idx+2] = b; pixels[idx+3] = 255;
+            }
         }
     }
 
@@ -410,17 +487,46 @@ function renderMinimapCore() {
         minimapHint.style.color = '#ff3333';
     } else {
         const loadedCount = slots.filter(s => s !== null).length;
-        minimapHint.textContent = `${loadedCount} file${loadedCount > 1 ? 's' : ''} loaded`;
+        const modeNote = isMicrochipMode() ? ' · Microchip XC16' : '';
+        minimapHint.textContent = `${loadedCount} file${loadedCount > 1 ? 's' : ''} loaded${modeNote}`;
         minimapHint.style.color = '';
     }
 
-    addrStart.textContent = toHex8(0);
-    addrEnd.textContent   = toHex8(totalSize);
+    if (isMicrochipMode()) {
+        addrStart.style.display = 'none';
+        addrEnd.style.display = 'none';
+        regionLabels.style.display = 'flex';
+        regionLabels.innerHTML = minimapLayout.map(p => {
+            const end = p.region.base + p.region.size - 1;
+            return `<span class="minimap-region-label"><b>${p.region.name}</b> ${toHex8(p.region.base)}–${toHex8(end)}</span>`;
+        }).join('');
+    } else {
+        addrStart.style.display = '';
+        addrEnd.style.display = '';
+        regionLabels.style.display = 'none';
+        addrStart.textContent = toHex8(0);
+        addrEnd.textContent   = toHex8(totalSize);
+    }
 }
 
 function renderMinimap() {
     renderMinimapCore();
+    updateModeUI();
     if (typeof enlargedVisible !== 'undefined' && enlargedVisible) renderEnlargedMap();
+}
+
+function updateModeUI() {
+    const microchip = isMicrochipMode();
+    const stm32Cb = document.getElementById('stm32BaseAddr');
+    const unpackCb = document.getElementById('unpackWords');
+    if (stm32Cb) {
+        stm32Cb.disabled = microchip;
+        stm32Cb.closest('label').style.opacity = microchip ? 0.5 : 1;
+    }
+    if (unpackCb) {
+        unpackCb.disabled = !microchip;
+        unpackCb.closest('label').style.opacity = microchip ? 1 : 0.5;
+    }
 }
 
 // ===== Minimap Tooltip =====
@@ -429,22 +535,27 @@ minimapCanvas.addEventListener('mousemove', (e) => {
     const rect = minimapCanvas.getBoundingClientRect();
     const scaleX = minimapCanvas.width / rect.width;
     const px = Math.floor((e.clientX - rect.left) * scaleX);
-    const addr = Math.floor(px * (totalSize / minimapCanvas.width));
 
-    if (addr < 0 || addr >= totalSize) { minimapTooltip.style.display = 'none'; return; }
+    let panel = minimapLayout.find(p => px >= p.x0 && px < p.x1);
+    if (!panel) { minimapTooltip.style.display = 'none'; return; }
+
+    const innerPx = px - panel.x0;
+    const panelW = panel.x1 - panel.x0;
+    const addr = panel.region.base + Math.floor(innerPx * (panel.region.size / panelW));
 
     let ownerName = 'Empty (0xFF)', ownerColor = '#888';
     for (let s = 0; s < NUM_SLOTS; s++) {
         const slot = slots[s];
         if (!slot) continue;
-        if (addr >= slot.offset && addr < slot.offset + slot.size) {
+        if (slot.segments.some(seg => addr >= seg.addr && addr < seg.addr + seg.data.length)) {
             ownerName = `Slot ${s + 1}: ${slot.name}`;
             ownerColor = SLOT_COLORS_HEX[s];
             break;
         }
     }
 
-    minimapTooltip.innerHTML = `<span style="color:${ownerColor}">${ownerName}</span><br>${toHex8(addr)}`;
+    const regionTag = isMicrochipMode() ? `<br>${panel.region.name}` : '';
+    minimapTooltip.innerHTML = `<span style="color:${ownerColor}">${ownerName}</span>${regionTag}<br>${toHex8(addr)}`;
     minimapTooltip.style.display = 'block';
     minimapTooltip.style.left = (e.clientX + 14) + 'px';
     minimapTooltip.style.top  = (e.clientY - 10) + 'px';
@@ -463,6 +574,8 @@ function updateSlotUI(idx) {
     const offsetDisp   = document.getElementById(`offset-display-${idx}`);
     const offsetInput  = document.getElementById(`offset-input-${idx}`);
     const sizeEl       = document.getElementById(`size-${idx}`);
+    const segmentsRow  = document.getElementById(`segments-row-${idx}`);
+    const segmentsEl   = document.getElementById(`segments-${idx}`);
     const clearBtn     = document.getElementById(`clear-${idx}`);
     const warningEl    = document.getElementById(`warning-${idx}`);
     const warningText  = document.getElementById(`warning-text-${idx}`);
@@ -492,8 +605,28 @@ function updateSlotUI(idx) {
         offsetDisp.textContent = toHex8(slot.offset);
     }
 
+    if (slot.segments.length > 1 || slot.isMicrochip) {
+        segmentsRow.style.display = 'flex';
+        segmentsEl.textContent = slot.segments.map(seg => {
+            return `${toHex8(seg.addr)}..${toHex8(seg.addr + seg.data.length - 1)}`;
+        }).join(', ');
+    } else {
+        segmentsRow.style.display = 'none';
+    }
+
     const warnings = [];
-    if (slot.offset + slot.size > totalSize) warnings.push(`⚠ Exceeds total size (${toHex8(totalSize)})`);
+    const regions = getRegions();
+    for (const seg of slot.segments) {
+        let covered = 0;
+        for (const r of regions) covered += segmentBytesInRegion(seg, r);
+        if (covered < seg.data.length) {
+            if (isMicrochipMode()) {
+                warnings.push(`⚠ ${seg.data.length - covered} bytes outside FLASH/EEPROM/CONFIG map`);
+            } else {
+                warnings.push(`⚠ Exceeds total size (${toHex8(totalSize)})`);
+            }
+        }
+    }
     if (slot.offset < 0) warnings.push('⚠ Negative offset');
 
     if (warnings.length > 0) {
@@ -556,12 +689,15 @@ async function processFile(idx, file) {
             parsed = parseBin(buffer, existingOffset);
         }
 
+        const size = parsed.segments.reduce((n, seg) => n + seg.data.length, 0);
+
         slots[idx] = {
             name: file.name,
-            offset: parsed.offset,
-            size: parsed.data.length,
-            data: parsed.data,
-            isBin
+            offset: parsed.segments[0].addr,
+            size,
+            segments: parsed.segments,
+            isBin,
+            isMicrochip: parsed.isMicrochip
         };
 
         updateSlotUI(idx);
@@ -615,6 +751,22 @@ function getOutputName() {
     return name.length > 0 ? name : 'merged';
 }
 
+function unpackWords(data) {
+    const nWords = Math.floor(data.length / 4);
+    const out = new Uint8Array(nWords * 3);
+    for (let w = 0; w < nWords; w++) {
+        out[w * 3]     = data[w * 4];
+        out[w * 3 + 1] = data[w * 4 + 1];
+        out[w * 3 + 2] = data[w * 4 + 2];
+    }
+    return out;
+}
+
+function isUnpackEnabled() {
+    const cb = document.getElementById('unpackWords');
+    return !!(cb && cb.checked && isMicrochipMode());
+}
+
 /**
  * If the "Trim" checkbox is checked, strip trailing filler bytes then
  * pad the result up to the next 8-byte boundary (filled with filler byte).
@@ -635,17 +787,25 @@ function applyTrim(merged) {
 }
 
 downloadBinBtn.addEventListener('click', () => {
-    let { merged } = buildMergedBuffer();
-    merged = applyTrim(merged);
-    triggerDownload(merged, `${getOutputName()}.bin`, 'application/octet-stream');
+    const regionData = buildMergedRegions();
+    const flash = regionData[0];
+    let data = flash.merged;
+    if (isUnpackEnabled()) data = unpackWords(data);
+    data = applyTrim(data);
+    triggerDownload(data, `${getOutputName()}.bin`, 'application/octet-stream');
 });
 
 downloadHexBtn.addEventListener('click', () => {
-    let { merged } = buildMergedBuffer();
-    merged = applyTrim(merged);
+    const regionData = buildMergedRegions();
+    const segments = [];
+    for (const region of regionData) {
+        if (!regionOwnedBytes(region)) continue;
+        segments.push({ addr: region.base, data: applyTrim(region.merged) });
+    }
+    if (segments.length === 0) segments.push({ addr: 0, data: new Uint8Array(0) });
     const stm32Cb = document.getElementById('stm32BaseAddr');
-    const baseOffset = stm32Cb && stm32Cb.checked ? STM32_BASE : 0;
-    triggerDownload(new TextEncoder().encode(toIntelHex(merged, baseOffset)), `${getOutputName()}.hex`, 'text/plain');
+    const baseOffset = (!isMicrochipMode() && stm32Cb && stm32Cb.checked) ? STM32_BASE : 0;
+    triggerDownload(new TextEncoder().encode(toIntelHex(segments, baseOffset)), `${getOutputName()}.hex`, 'text/plain');
 });
 
 // Filler byte input — validate and re-render minimap on change
@@ -654,6 +814,11 @@ document.getElementById('fillerByteInput').addEventListener('input', function ()
     const valid = !isNaN(val) && val >= 0 && val <= 255;
     this.classList.toggle('invalid', !valid);
     if (valid) renderMinimap();
+});
+
+// Unpack words — re-render views on change
+document.getElementById('unpackWords').addEventListener('change', function () {
+    renderMinimap();
 });
 
 // ===== Enlarged Byte View =====
@@ -673,10 +838,48 @@ let enlargedPixelSize   = parseInt(pixelSizeSelect.value);   // px per byte (1�
 let enlargedBytesPerRow = parseInt(bytesPerRowSelect.value); // bytes per row
 
 function updateEnlargedHint() {
+    const unpackNote = isMicrochipMode()
+        ? (isUnpackEnabled() ? ' &nbsp;|&nbsp; 24-bit words unpacked (3 B)' : ' &nbsp;|&nbsp; 4 B HEX slots')
+        : '';
     enlargedHint.innerHTML =
         `Each pixel = ${enlargedPixelSize} px &nbsp;|&nbsp; ` +
         `${enlargedBytesPerRow} bytes/row &nbsp;|&nbsp; ` +
-        `brightness = value (0x00=black, 0xFF=white) &nbsp;|&nbsp; tinted by slot color`;
+        `brightness = value (0x00=black, 0xFF=white) &nbsp;|&nbsp; tinted by slot color` +
+        unpackNote;
+}
+
+function buildVirtualImage() {
+    const regionData = buildMergedRegions();
+    const unpack = isUnpackEnabled();
+    const chunks = [];
+
+    for (const region of regionData) {
+        let data = region.merged;
+        let owner = region.ownerMap;
+        const realAddrs = new Int32Array(data.length);
+
+        if (unpack && (region.id === 'flash' || region.id === 'config')) {
+            const nWords = Math.floor(data.length / 4);
+            const nd = new Uint8Array(nWords * 3);
+            const no = new Int8Array(nWords * 3);
+            const na = new Int32Array(nWords * 3);
+            for (let w = 0; w < nWords; w++) {
+                for (let b = 0; b < 3; b++) {
+                    nd[w * 3 + b] = data[w * 4 + b];
+                    no[w * 3 + b] = owner[w * 4 + b];
+                    na[w * 3 + b] = region.base + w * 4 + b;
+                }
+            }
+            data = nd; owner = no;
+            for (let i = 0; i < na.length; i++) realAddrs[i] = na[i];
+        } else {
+            for (let i = 0; i < data.length; i++) realAddrs[i] = region.base + i;
+        }
+
+        if (data.length > 0) chunks.push({ region, data, owner, realAddrs });
+    }
+
+    return chunks;
 }
 
 /**
@@ -688,10 +891,13 @@ function updateEnlargedHint() {
 function renderEnlargedMap() {
     if (!enlargedVisible) return;
 
-    const { merged, ownerMap } = buildMergedBuffer();
+    const chunks = buildVirtualImage();
     const BPR  = enlargedBytesPerRow;
     const PS   = enlargedPixelSize;
-    const rows = Math.ceil(totalSize / BPR);
+
+    let totalBytes = 0;
+    for (const c of chunks) totalBytes += Math.ceil(c.data.length / BPR) * BPR;
+    const rows = Math.max(1, Math.ceil(totalBytes / BPR));
     const W    = BPR * PS;
     const H    = rows * PS;
 
@@ -701,9 +907,26 @@ function renderEnlargedMap() {
     const imageData = enlargedCtx.createImageData(W, H);
     const pixels    = imageData.data;
 
-    for (let i = 0; i < totalSize; i++) {
-        const val   = merged[i];
-        const owner = ownerMap[i];
+    const dataArr   = new Uint8Array(totalBytes);
+    const ownerArr  = new Int8Array(totalBytes).fill(-1);
+    const realArr   = new Int32Array(totalBytes).fill(-1);
+    const regionArr = new Array(totalBytes).fill(null);
+
+    let virt = 0;
+    for (const chunk of chunks) {
+        for (let i = 0; i < chunk.data.length; i++) {
+            dataArr[virt]   = chunk.data[i];
+            ownerArr[virt]  = chunk.owner[i];
+            realArr[virt]   = chunk.realAddrs[i];
+            regionArr[virt] = chunk.region.name;
+            virt++;
+        }
+        virt = Math.ceil(virt / BPR) * BPR;
+    }
+
+    for (let i = 0; i < totalBytes; i++) {
+        const val   = dataArr[i];
+        const owner = ownerArr[i];
         const byteCol = i % BPR;
         const byteRow = Math.floor(i / BPR);
 
@@ -720,7 +943,6 @@ function renderEnlargedMap() {
             b = Math.round(sc[2] * t);
         }
 
-        // Fill the PS×PS block for this byte
         for (let dy = 0; dy < PS; dy++) {
             for (let dx = 0; dx < PS; dx++) {
                 const px   = byteCol * PS + dx;
@@ -735,6 +957,7 @@ function renderEnlargedMap() {
     }
 
     enlargedCtx.putImageData(imageData, 0, 0);
+    enlargedLayout = { dataArr, ownerArr, realArr, regionArr, totalBytes };
 }
 
 // Toggle enlarged view
@@ -774,14 +997,15 @@ enlargedCanvas.addEventListener('mousemove', (e) => {
     const byteRow = Math.floor(canvasY / enlargedPixelSize);
     const addr    = byteRow * enlargedBytesPerRow + byteCol;
 
-    if (addr < 0 || addr >= totalSize) {
+    if (!enlargedLayout || addr < 0 || addr >= enlargedLayout.totalBytes || enlargedLayout.realArr[addr] < 0) {
         enlargedStatus.textContent = 'Hover over the map to inspect bytes';
         return;
     }
 
-    const { merged, ownerMap } = buildMergedBuffer();
-    const val   = merged[addr];
-    const owner = ownerMap[addr];
+    const val   = enlargedLayout.dataArr[addr];
+    const owner = enlargedLayout.ownerArr[addr];
+    const realAddr = enlargedLayout.realArr[addr];
+    const regionName = enlargedLayout.regionArr[addr];
 
     let slotInfo = 'Empty';
     let colorStyle = '';
@@ -790,8 +1014,9 @@ enlargedCanvas.addEventListener('mousemove', (e) => {
         colorStyle = `color:${SLOT_COLORS_HEX[owner]}`;
     }
 
+    const addrLabel = regionName ? `${regionName} ${toHex8(realAddr)}` : toHex8(realAddr);
     enlargedStatus.innerHTML =
-        `Address: <b>${toHex8(addr)}</b> (${addr.toLocaleString()}) &nbsp;|&nbsp; ` +
+        `Address: <b>${addrLabel}</b> (${realAddr.toLocaleString()}) &nbsp;|&nbsp; ` +
         `Value: <b>0x${val.toString(16).toUpperCase().padStart(2,'0')}</b> (${val}) &nbsp;|&nbsp; ` +
         `<span style="${colorStyle}">${slotInfo}</span>`;
 });
