@@ -19,6 +19,7 @@ let renderedSlotCount = 0;  // how many slot cards exist in the DOM
 
 // ===== Constants =====
 const STM32_BASE = 0x08000000; // STM32 flash base address
+const EM_DSPIC30F = 118;      // e_machine of XC16 PIC24/dsPIC ELF files
 
 const MCHP_EEPROM_BASE = 0x00FFFC00;
 const MCHP_EEPROM_SIZE = 0x400;
@@ -115,7 +116,7 @@ function createSlotCard(idx) {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <p class="drop-text">Drop .hex or .bin file</p>
+                <p class="drop-text">Drop .hex, .elf or .bin file</p>
                 <p class="drop-hint">or click to browse</p>
             </div>
         </div>
@@ -182,7 +183,7 @@ function bindSlotEvents(idx) {
     dropZone.addEventListener('click', () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.hex,.bin';
+        input.accept = '.hex,.elf,.bin';
         input.multiple = true;
         input.addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
@@ -266,6 +267,28 @@ function ensureTrailingEmptySlot() {
 
 // ===== Intel HEX Parser =====
 
+function coalesceSegments(entries) {
+    entries.sort((a, b) => a.addr - b.addr);
+
+    const segments = [];
+    for (const e of entries) {
+        const last = segments[segments.length - 1];
+        if (last && e.addr <= last.addr + last.data.length) {
+            const writePos = e.addr - last.addr;
+            const need = writePos + e.data.length;
+            if (need > last.data.length) {
+                const grown = new Uint8Array(need);
+                grown.set(last.data);
+                last.data = grown;
+            }
+            last.data.set(e.data, writePos);
+        } else {
+            segments.push({ addr: e.addr, data: e.data });
+        }
+    }
+    return segments;
+}
+
 function parseIntelHex(buffer) {
     const text = new TextDecoder('ascii').decode(buffer);
     const lines = text.split(/\r?\n/);
@@ -301,26 +324,126 @@ function parseIntelHex(buffer) {
 
     if (entries.length === 0) throw new Error('No data records found in HEX file');
 
-    entries.sort((a, b) => a.addr - b.addr);
+    return { segments: coalesceSegments(entries), isMicrochip };
+}
 
-    const segments = [];
-    for (const e of entries) {
-        const last = segments[segments.length - 1];
-        if (last && e.addr <= last.addr + last.data.length) {
-            const writePos = e.addr - last.addr;
-            const need = writePos + e.data.length;
-            if (need > last.data.length) {
-                const grown = new Uint8Array(need);
-                grown.set(last.data);
-                last.data = grown;
-            }
-            last.data.set(e.data, writePos);
+// ===== ELF Parser =====
+
+function parseElf(buffer) {
+    const u8 = new Uint8Array(buffer);
+    if (u8.length < 52 || u8[0] !== 0x7F || u8[1] !== 0x45 || u8[2] !== 0x4C || u8[3] !== 0x46) {
+        throw new Error('Not an ELF file');
+    }
+
+    const is64 = u8[4] === 2;
+    const little = u8[5] !== 2;
+    const dv = new DataView(buffer);
+    const rd16 = (o) => dv.getUint16(o, little);
+    const rd32 = (o) => dv.getUint32(o, little);
+
+    const e_machine = rd16(18);
+    const isMicrochip = e_machine === EM_DSPIC30F;
+
+    let phoff, phentsize, phnum, shoff, shentsize, shnum;
+    if (is64) {
+        phoff = rd32(32);
+        phentsize = rd16(54);
+        phnum = rd16(56);
+        shoff = rd32(40);
+        shentsize = rd16(58);
+        shnum = rd16(60);
+    } else {
+        phoff = rd32(28);
+        phentsize = rd16(42);
+        phnum = rd16(44);
+        shoff = rd32(32);
+        shentsize = rd16(46);
+        shnum = rd16(48);
+    }
+
+    const toHexAddr = (lma) => {
+        let addr = lma;
+        if (isMicrochip) {
+            addr *= 2;
+        } else if ((addr & 0xFF000000) === STM32_BASE) {
+            addr -= STM32_BASE;
+        }
+        return addr;
+    };
+
+    const loads = [];
+    for (let i = 0; i < phnum; i++) {
+        const ph = phoff + i * phentsize;
+        if (ph + (is64 ? 56 : 32) > u8.length) break;
+
+        let p_type, p_offset, p_vaddr, p_paddr, p_filesz, p_memsz;
+        if (is64) {
+            p_type   = rd32(ph);
+            p_offset = rd32(ph + 8);
+            p_vaddr  = rd32(ph + 16);
+            p_paddr  = rd32(ph + 24);
+            p_filesz = rd32(ph + 32);
+            p_memsz  = rd32(ph + 40);
         } else {
-            segments.push({ addr: e.addr, data: e.data });
+            p_type   = rd32(ph);
+            p_offset = rd32(ph + 4);
+            p_vaddr  = rd32(ph + 8);
+            p_paddr  = rd32(ph + 12);
+            p_filesz = rd32(ph + 16);
+            p_memsz  = rd32(ph + 20);
+        }
+
+        if (p_type !== 1 || p_filesz === 0) continue;
+        if (p_offset + p_filesz > u8.length) continue;
+        loads.push({ p_offset, p_vaddr, p_paddr, p_filesz, p_memsz });
+    }
+
+    const entries = [];
+
+    for (let i = 0; i < shnum; i++) {
+        const sh = shoff + i * shentsize;
+        if (sh + (is64 ? 64 : 40) > u8.length) break;
+
+        let sh_type, sh_flags, sh_addr, sh_offset, sh_size;
+        if (is64) {
+            sh_type   = rd32(sh + 4);
+            sh_flags  = rd32(sh + 8);
+            sh_addr   = rd32(sh + 16);
+            sh_offset = rd32(sh + 24);
+            sh_size   = rd32(sh + 32);
+        } else {
+            sh_type   = rd32(sh + 4);
+            sh_flags  = rd32(sh + 8);
+            sh_addr   = rd32(sh + 12);
+            sh_offset = rd32(sh + 16);
+            sh_size   = rd32(sh + 20);
+        }
+
+        if (sh_type === 0 || sh_type === 8) continue;
+        if ((sh_flags & 0x2) === 0) continue;
+        if (sh_size === 0 || sh_offset + sh_size > u8.length) continue;
+
+        let lma = null;
+        for (const seg of loads) {
+            if (sh_offset >= seg.p_offset && sh_offset < seg.p_offset + seg.p_filesz) {
+                lma = seg.p_paddr + (sh_addr - seg.p_vaddr);
+                break;
+            }
+        }
+        if (lma === null) continue;
+        entries.push({ addr: toHexAddr(lma), data: u8.slice(sh_offset, sh_offset + sh_size) });
+    }
+
+    if (entries.length === 0) {
+        for (const seg of loads) {
+            const lma = (seg.p_paddr !== 0 || seg.p_vaddr === 0) ? seg.p_paddr : seg.p_vaddr;
+            entries.push({ addr: toHexAddr(lma), data: u8.slice(seg.p_offset, seg.p_offset + seg.p_filesz) });
         }
     }
 
-    return { segments, isMicrochip };
+    if (entries.length === 0) throw new Error('No loadable segments in ELF file');
+
+    return { segments: coalesceSegments(entries), isMicrochip };
 }
 
 // ===== BIN Parser =====
@@ -672,9 +795,10 @@ async function processFile(idx, file) {
     const ext = file.name.split('.').pop().toLowerCase();
     const isBin = ext === 'bin';
     const isHex = ext === 'hex';
+    const isElf = ext === 'elf';
 
-    if (!isBin && !isHex) {
-        showSlotError(idx, `Unsupported file type ".${ext}". Use .hex or .bin`);
+    if (!isBin && !isHex && !isElf) {
+        showSlotError(idx, `Unsupported file type ".${ext}". Use .hex, .elf or .bin`);
         return;
     }
 
@@ -684,6 +808,8 @@ async function processFile(idx, file) {
 
         if (isHex) {
             parsed = parseIntelHex(buffer);
+        } else if (isElf) {
+            parsed = parseElf(buffer);
         } else {
             const existingOffset = slots[idx]?.isBin ? slots[idx].offset : 0;
             parsed = parseBin(buffer, existingOffset);
